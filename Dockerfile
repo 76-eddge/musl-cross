@@ -52,6 +52,14 @@ RUN make -C musl-cross-make \
 	LINUX_VER=${LINUX_VER} \
 	install
 
+# Build libuuid
+RUN apk add autoconf automake bison gettext-dev libtool pkgconfig
+
+ARG UTIL_LINUX_GZ_URI=https://github.com/karelzak/util-linux/archive/v2.38.tar.gz
+RUN wget -O - "$UTIL_LINUX_GZ_URI" | tar xz && cd util-linux-* && ./autogen.sh && \
+	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc && make -j && mv libuuid.la .libs/libuuid.a /musl-cross-make/output/${TARGET}/lib/
+
+
 # Copy toolchain into scratch image
 FROM scratch AS deploy
 COPY --from=build /musl-cross-make/output/ /
