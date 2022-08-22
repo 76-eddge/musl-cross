@@ -3,6 +3,7 @@ FROM alpine AS build
 RUN apk add file make g++ git patch xz
 
 RUN git clone https://github.com/richfelker/musl-cross-make.git
+COPY config.mak musl-cross-make/
 
 RUN mv musl-cross-make/patches/gcc-11.2.0 musl-cross-make/patches/gcc-11.3.0
 RUN echo "cf86a48278f9a6f4b03d4390550577b20353b4e9  gcc-11.3.0.tar.xz" > musl-cross-make/hashes/gcc-11.3.0.tar.xz.sha1
