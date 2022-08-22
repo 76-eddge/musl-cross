@@ -21,7 +21,7 @@ jobs:
         DOCKER_BUILDKIT: 1
 
     - name: Test Toolchain
-      run: mkdir -p ${{ matrix.target }} && tar -xJf ${{ matrix.target }}.tar.xz -C ${{ matrix.target }} && ${{ matrix.target }}/bin/${{ matrix.target }}-g++ --version
+      run: mkdir -p ${{ matrix.target }} && tar -xJf ${{ matrix.target }}.tar.xz -C ${{ matrix.target }} && make BIN_DIR=${{ matrix.target }} SRC_DIR=test CXX=${{ matrix.target }}/bin/${{ matrix.target }}-g++ CXXFLAGS='-O2' -f test/Makefile version tests
 
     - name: Upload Artifacts
       uses: fnkr/github-action-ghr@v1.3
