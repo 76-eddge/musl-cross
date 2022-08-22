@@ -5,6 +5,7 @@ RUN apk add file make g++ git patch xz
 RUN git clone https://github.com/richfelker/musl-cross-make.git
 
 RUN mv musl-cross-make/patches/gcc-11.2.0 musl-cross-make/patches/gcc-11.3.0
+COPY libstdc++-v3-pic.diff musl-cross-make/patches/gcc-11.3.0/
 RUN echo "cf86a48278f9a6f4b03d4390550577b20353b4e9  gcc-11.3.0.tar.xz" > musl-cross-make/hashes/gcc-11.3.0.tar.xz.sha1
 RUN echo "15d42de8f15404a4a43a912440cf367f994779d7  binutils-2.38.tar.xz" > musl-cross-make/hashes/binutils-2.38.tar.xz.sha1
 RUN echo "0578d48607ec0e272177d175fd1807c30b00fdf2  gmp-6.2.1.tar.xz" > musl-cross-make/hashes/gmp-6.2.1.tar.xz.sha1
@@ -43,6 +44,7 @@ ARG LINUX_VER=headers-4.19.88-1
 
 RUN make -C musl-cross-make \
 	COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" CFLAGS="-g0 -O3 -fPIC" CXXFLAGS="-g0 -O3 -fPIC" LDFLAGS="-s" --disable-shared --enable-static' \
+	GCC_CONFIG='--enable-default-pie --with-pic' \
 	TARGET=${TARGET} \
 	GCC_VER=${GCC_VER} \
 	BINUTILS_VER=${BINUTILS_VER} \
