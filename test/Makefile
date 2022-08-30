@@ -9,7 +9,7 @@ version:
 	$(CXX) --version
 
 $(BIN_DIR)/%.so: $(SRC_DIR)/%So.cxx
-	$(CXX) -shared -static -fPIC $(CXXFLAGS) -o $@ $< $(LIBS)
+	$(CXX) -shared -fPIC $(CXXFLAGS) -o $@ $< -Wl,-Bstatic $(LIBS)
 
 $(BIN_DIR)/%So.exe: $(SRC_DIR)/%SoExe.cxx $(BIN_DIR)/%.so
 	$(CXX) -static $(CXXFLAGS) -o $@ $< -Wl,-Bdynamic $(BIN_DIR)/$*.so -Wl,-Bstatic $(LIBS)

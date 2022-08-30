@@ -54,6 +54,10 @@ RUN make -C musl-cross-make \
 	LINUX_VER=${LINUX_VER} \
 	install
 
+RUN ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
+	ranlib musl-cross-make/output/${TARGET}/lib/libc_dl.a
+
+
 # Build libuuid
 RUN apk add autoconf automake bison gettext-dev libtool pkgconfig
 
