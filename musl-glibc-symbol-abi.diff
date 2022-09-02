@@ -4,7 +4,12 @@
  #define UTIME_NOW  0x3fffffff
  #define UTIME_OMIT 0x3ffffffe
  
-+#ifdef GLIBC_ABI_COMPATIBLE
++#ifdef NO_GLIBC_ABI_COMPATIBLE
+ int stat(const char *__restrict, struct stat *__restrict);
+ int fstat(int, struct stat *);
+ int lstat(const char *__restrict, struct stat *__restrict);
+ int fstatat(int, const char *__restrict, struct stat *__restrict, int);
++#else
 +int __xstat(int, const char *__restrict, struct stat *__restrict);
 +int __fxstat(int, int, struct stat *);
 +int __lxstat(int, const char *__restrict, struct stat *__restrict);
@@ -21,11 +26,6 @@
 +static inline int fstat(int fd, struct stat *buf) { return __fxstat(GLIBC_ABI_XSTAT_VERSION, fd, buf); }
 +static inline int lstat(const char *__restrict path, struct stat *__restrict buf) { return __lxstat(GLIBC_ABI_XSTAT_VERSION, path, buf); }
 +static inline int fstatat(int fd, const char *__restrict path, struct stat *__restrict buf, int flag) { return __fxstatat(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag); }
-+#else
- int stat(const char *__restrict, struct stat *__restrict);
- int fstat(int, struct stat *);
- int lstat(const char *__restrict, struct stat *__restrict);
- int fstatat(int, const char *__restrict, struct stat *__restrict, int);
 +#endif
  int chmod(const char *, mode_t);
  int fchmod(int, mode_t);
@@ -34,7 +34,10 @@
  int mkfifoat(int, const char *, mode_t);
  
  #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
-+#ifdef GLIBC_ABI_COMPATIBLE
++#ifdef NO_GLIBC_ABI_COMPATIBLE
+ int mknod(const char *, mode_t, dev_t);
+ int mknodat(int, const char *, mode_t, dev_t);
++#else
 +int __xmknod(int, const char *, mode_t, dev_t*);
 +int __xmknodat(int, int, const char *, mode_t, dev_t*);
 +
@@ -47,9 +50,6 @@
 +
 +static inline int mknod(const char *path, mode_t mode, dev_t dev) { return __xmknod(GLIBC_ABI_XMKNOD_VERSION, path, mode, &dev); }
 +static inline int mknodat(int fd, const char *path, mode_t mode, dev_t dev) { return __xmknodat(GLIBC_ABI_XMKNOD_VERSION, fd, path, mode, &dev); }
-+#else
- int mknod(const char *, mode_t, dev_t);
- int mknodat(int, const char *, mode_t, dev_t);
 +#endif
  #endif
  
