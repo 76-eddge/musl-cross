@@ -16,12 +16,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3.0.2
+    - uses: actions/checkout@v3
+    - uses: docker/setup-buildx-action@v1
 
     - name: Build Toolchain
-      run: docker build . --file Dockerfile --build-arg TARGET=${{ matrix.target }} --target deploy --output - | xz > ${{ matrix.target }}.tar.xz
-      env:
-        DOCKER_BUILDKIT: 1
+      uses: docker/build-push-action@v3
+      with:
+        build-args: TARGET=${{ matrix.target }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        context: .
+        outputs: type=tar,dest=${{ matrix.target }}.tar
+        target: deploy
 
     - name: Test Toolchain
-      run: mkdir -p ${{ matrix.target }} && tar -xJf ${{ matrix.target }}.tar.xz -C ${{ matrix.target }} && make BIN_DIR=${{ matrix.target }} SRC_DIR=test CXX=${{ matrix.target }}/bin/${{ matrix.target }}-g++ CXXFLAGS='-O2' -f test/Makefile version tests
+      run: xz -k ${{ matrix.target }}.tar && tar -xf ${{ matrix.target }}.tar && make SRC_DIR=test CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2' -f test/Makefile version tests

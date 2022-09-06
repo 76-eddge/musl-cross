@@ -1,0 +1,5 @@
+# Ignore everything
+*
+
+# Only include the files we want
+!*.diff

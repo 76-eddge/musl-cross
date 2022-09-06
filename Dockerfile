@@ -2,7 +2,7 @@
 FROM alpine AS build
 RUN apk add file make g++ git patch xz
 
-RUN git clone https://github.com/richfelker/musl-cross-make.git && \
+RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	sed -i -e 's/xvf/xf/' musl-cross-make/Makefile
 
 RUN mv musl-cross-make/patches/gcc-11.2.0 musl-cross-make/patches/gcc-11.3.0
@@ -68,7 +68,7 @@ RUN ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/l
 # Install patchelf
 ARG PATCHELF_GZ_URI=https://github.com/NixOS/patchelf/releases/download/0.15.0/patchelf-0.15.0-x86_64.tar.gz
 
-RUN wget -O - "$PATCHELF_GZ_URI" | tar xz -C musl-cross-make/output/${TARGET} ./bin/patchelf
+RUN wget -O - "$PATCHELF_GZ_URI" | tar xz -C musl-cross-make/output/bin ./bin/patchelf
 
 
 # Build libuuid
