@@ -2,16 +2,32 @@ name: Build
 
 on:
   push:
-    branches-ignore:
-      - main
-    tags-ignore:
-      - '**'
+    branches: ['**']
+    tags-ignore: ['**']
+  release:
+    types: [published]
 
 jobs:
+  init:
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - id: set-matrix
+      run: |
+        if [ "$GITHUB_EVENT_NAME" = "release" ] || [ "$GITHUB_REF_NAME" = "main" ]; then
+          echo '::set-output name=matrix::{"target":["x86_64-linux-musl","x86_64-linux-muslx32","i686-linux-musl","powerpc64le-linux-musl","arm-linux-musleabihf","aarch64-linux-musl"]}'
+        else
+          echo '::set-output name=matrix::{"target":["x86_64-linux-musl"]}'
+        fi
+
   build:
+    needs: init
     strategy:
-      matrix:
-        target: [x86_64-linux-musl]
+      fail-fast: false
+      matrix: ${{ fromJson(needs.init.outputs.matrix) }}
 
     runs-on: ubuntu-latest
 
@@ -30,4 +46,15 @@ jobs:
         target: deploy
 
     - name: Test Toolchain
-      run: xz -k ${{ matrix.target }}.tar && tar -xf ${{ matrix.target }}.tar && make SRC_DIR=test CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2' -f test/Makefile version tests
+      run: tar -xf ${{ matrix.target }}.tar && make SRC_DIR=test CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2' -f test/Makefile version tests
+
+    - name: Archive Toolchain
+      if: github.event_name == 'release'
+      run: xz ${{ matrix.target }}.tar
+
+    - name: Upload Toolchain
+      if: github.event_name == 'release'
+      uses: fnkr/github-action-ghr@v1.3
+      env:
+        GHR_PATH: ${{ matrix.target }}.tar.xz
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
