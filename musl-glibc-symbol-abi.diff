@@ -22,10 +22,10 @@
 +#define GLIBC_ABI_XSTAT_VERSION 1
 +#endif
 +
-+static inline int stat(const char *__restrict path, struct stat *__restrict buf) { return __xstat(GLIBC_ABI_XSTAT_VERSION, path, buf); }
-+static inline int fstat(int fd, struct stat *buf) { return __fxstat(GLIBC_ABI_XSTAT_VERSION, fd, buf); }
-+static inline int lstat(const char *__restrict path, struct stat *__restrict buf) { return __lxstat(GLIBC_ABI_XSTAT_VERSION, path, buf); }
-+static inline int fstatat(int fd, const char *__restrict path, struct stat *__restrict buf, int flag) { return __fxstatat(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag); }
++__attribute__((__weak__)) int stat(const char *__restrict path, struct stat *__restrict buf) { return __xstat(GLIBC_ABI_XSTAT_VERSION, path, buf); }
++__attribute__((__weak__)) int fstat(int fd, struct stat *buf) { return __fxstat(GLIBC_ABI_XSTAT_VERSION, fd, buf); }
++__attribute__((__weak__)) int lstat(const char *__restrict path, struct stat *__restrict buf) { return __lxstat(GLIBC_ABI_XSTAT_VERSION, path, buf); }
++__attribute__((__weak__)) int fstatat(int fd, const char *__restrict path, struct stat *__restrict buf, int flag) { return __fxstatat(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag); }
 +#endif
  int chmod(const char *, mode_t);
  int fchmod(int, mode_t);
@@ -48,8 +48,8 @@
 +#define GLIBC_ABI_XMKNOD_VERSION 1
 +#endif
 +
-+static inline int mknod(const char *path, mode_t mode, dev_t dev) { return __xmknod(GLIBC_ABI_XMKNOD_VERSION, path, mode, &dev); }
-+static inline int mknodat(int fd, const char *path, mode_t mode, dev_t dev) { return __xmknodat(GLIBC_ABI_XMKNOD_VERSION, fd, path, mode, &dev); }
++__attribute__((__weak__)) int mknod(const char *path, mode_t mode, dev_t dev) { return __xmknod(GLIBC_ABI_XMKNOD_VERSION, path, mode, &dev); }
++__attribute__((__weak__)) int mknodat(int fd, const char *path, mode_t mode, dev_t dev) { return __xmknodat(GLIBC_ABI_XMKNOD_VERSION, fd, path, mode, &dev); }
 +#endif
  #endif
  
