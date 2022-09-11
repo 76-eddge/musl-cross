@@ -68,7 +68,7 @@ RUN ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/l
 # Install patchelf
 ARG PATCHELF_GZ_URI=https://github.com/NixOS/patchelf/releases/download/0.15.0/patchelf-0.15.0-x86_64.tar.gz
 
-RUN wget -O - "$PATCHELF_GZ_URI" | tar xz -C musl-cross-make/output/bin ./bin/patchelf
+RUN wget -O - "$PATCHELF_GZ_URI" | tar xz -C musl-cross-make/output ./bin/patchelf
 
 
 # Build libuuid
