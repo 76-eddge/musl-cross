@@ -11,7 +11,7 @@ RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	ln -s musl musl-cross-make/patches/musl-$(sed -nre 's/^MUSL_VER\s*=\s*([0-9.]+)\s*$/\1/p' musl-cross-make/Makefile)
 
 COPY . musl-cross-make/
-RUN find musl-cross-make | xargs touch -r /bin/touch
+RUN find musl-cross-make | xargs touch -h -r /bin
 
 
 # Build the toolchain
@@ -68,11 +68,11 @@ RUN make -C musl-cross-make \
 
 # Install patchelf
 ARG PATCHELF_GZ_URI=https://github.com/NixOS/patchelf/releases/download/0.15.0/patchelf-0.15.0-x86_64.tar.gz
-RUN (cat sources/patchelf-*.tar.gz || wget -O - "$PATCHELF_GZ_URI") | tar xz -C musl-cross-make/output ./bin/patchelf
+RUN (cat musl-cross-make/sources/patchelf-*.tar.gz || wget -O - "$PATCHELF_GZ_URI") | tar xz -C musl-cross-make/output ./bin/patchelf
 
 # Build libuuid
 ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.38.1.tar.gz
-RUN (cat sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
+RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
 	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc CFLAGS="-g -O2 -fPIC" && \
 	make -j && \
