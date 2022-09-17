@@ -1,0 +1,10 @@
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/cache@v3
+      with:
+        key: sources-${{ hashFiles('sources/wget.txt') }}
+        path: sources
+
+    - run: cd sources && cat wget.txt | xargs -l1 ./wget.sh -nc
+      shell: bash

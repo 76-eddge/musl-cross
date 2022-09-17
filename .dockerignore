@@ -2,4 +2,6 @@
 *
 
 # Only include the files we want
-!*.diff
+!patches/
+!hashes/
+!sources/

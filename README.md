@@ -25,7 +25,7 @@ For executables, the easiest way to support glibc systems is to statically link 
 For shared libraries, there are a couple different ways to support this.
 The toolchains target musl as the default C library, but they use an ABI compatible with older versions of glibc.
 This allows libraries that are dynamically-linked against the C library to be modified, using the included `patchelf` utility, to point at glibc instead of musl: `patchelf --replace-needed libc.so libc.so.6 ...`.
-If compatibility with older versions of glibc are needed (e.g. CentOS 6 / glibc 2.12), then additional dependencies may need to be added, depending on which symbols are used: `patchelf --add-needed libpthread.so.6 ...`.
+If compatibility with older versions of glibc are needed, then additional dependencies may need to be added, depending on which symbols are used: `patchelf --add-needed libpthread.so.6 ...`.
 
 Another option for shared libraries is to remove the dependency on the C library entirely: `patchelf --remove-needed libc.so ...`.
 This will cause the shared library to be loaded and linked using the current C library loaded by the process.

@@ -1,19 +1,21 @@
 # Build using Alpine image
-FROM alpine AS build
+FROM alpine AS base
 RUN apk add file make g++ git patch xz
+RUN apk add autoconf automake bison gettext-dev libtool pkgconfig
 
+
+FROM base AS setup
 RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
-	sed -i -e 's/xvf/xf/' musl-cross-make/Makefile
+	sed -i -e 's/xvf/xf/' -e 's,hashes/%.sha1 |,| hashes/%.sha1,' musl-cross-make/Makefile && \
+	ln -s gcc-11.2.0 musl-cross-make/patches/gcc-11.3.0 && \
+	ln -s musl musl-cross-make/patches/musl-$(sed -nre 's/^MUSL_VER\s*=\s*([0-9.]+)\s*$/\1/p' musl-cross-make/Makefile)
 
-RUN mv musl-cross-make/patches/gcc-11.2.0 musl-cross-make/patches/gcc-11.3.0
-COPY libstdc++-v3-pic.diff musl-cross-make/patches/gcc-11.3.0/
-COPY musl-glibc-symbol-abi.diff musl-cross-make/patches/musl/
-RUN ln -s musl musl-cross-make/patches/musl-$(sed -nre 's/^MUSL_VER\s*=\s*([0-9.]+)\s*$/\1/p' musl-cross-make/Makefile)
-RUN echo "cf86a48278f9a6f4b03d4390550577b20353b4e9  gcc-11.3.0.tar.xz" > musl-cross-make/hashes/gcc-11.3.0.tar.xz.sha1
-RUN echo "15d42de8f15404a4a43a912440cf367f994779d7  binutils-2.38.tar.xz" > musl-cross-make/hashes/binutils-2.38.tar.xz.sha1
-RUN echo "0578d48607ec0e272177d175fd1807c30b00fdf2  gmp-6.2.1.tar.xz" > musl-cross-make/hashes/gmp-6.2.1.tar.xz.sha1
-RUN echo "2a4919abf445c6eda4e120cd669b8733ce337227  mpc-1.2.1.tar.gz" > musl-cross-make/hashes/mpc-1.2.1.tar.gz.sha1
-RUN echo "159c3a58705662bfde4dc93f2617f3660855ead6  mpfr-4.1.0.tar.xz" > musl-cross-make/hashes/mpfr-4.1.0.tar.xz.sha1
+COPY . musl-cross-make/
+RUN find musl-cross-make | xargs touch -r /bin/touch
+
+
+# Build the toolchain
+FROM setup AS build
 
 ARG TARGET=x86_64-linux-musl
 # aarch64[_be]-linux-musl
@@ -59,24 +61,24 @@ RUN make -C musl-cross-make \
 	MPFR_VER=${MPFR_VER} \
 	LINUX_VER=${LINUX_VER} \
 	install && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libc.so.6
-
-RUN ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
-	ranlib musl-cross-make/output/${TARGET}/lib/libc_dl.a
-
+	musl-cross-make/output/${TARGET}/bin/ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
+	musl-cross-make/output/${TARGET}/bin/ranlib musl-cross-make/output/${TARGET}/lib/libc_dl.a && \
+	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libc.so.6 && \
+	make -C musl-cross-make clean
 
 # Install patchelf
 ARG PATCHELF_GZ_URI=https://github.com/NixOS/patchelf/releases/download/0.15.0/patchelf-0.15.0-x86_64.tar.gz
-
-RUN wget -O - "$PATCHELF_GZ_URI" | tar xz -C musl-cross-make/output ./bin/patchelf
-
+RUN (cat sources/patchelf-*.tar.gz || wget -O - "$PATCHELF_GZ_URI") | tar xz -C musl-cross-make/output ./bin/patchelf
 
 # Build libuuid
-RUN apk add autoconf automake bison gettext-dev libtool pkgconfig
-
-ARG UTIL_LINUX_GZ_URI=https://github.com/karelzak/util-linux/archive/v2.38.tar.gz
-RUN wget -O - "$UTIL_LINUX_GZ_URI" | tar xz && cd util-linux-* && ./autogen.sh && \
-	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc CFLAGS="-g -O2 -fPIC" && make -j && mv libuuid.la .libs/libuuid.a /musl-cross-make/output/${TARGET}/lib/
+ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.38.1.tar.gz
+RUN (cat sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
+	./autogen.sh && \
+	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc CFLAGS="-g -O2 -fPIC" && \
+	make -j && \
+	mv libuuid.la .libs/libuuid.a ../musl-cross-make/output/${TARGET}/lib/ && \
+	cd .. && \
+	rm -rf util-linux-*
 
 
 # Copy toolchain into scratch image

@@ -15,6 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-sources
+
     - id: set-matrix
       run: |
         if [ "$GITHUB_EVENT_NAME" = "release" ] || [ "$GITHUB_REF_NAME" = "main" ]; then
@@ -33,6 +36,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-sources
     - uses: docker/setup-buildx-action@v2
 
     - name: Build Toolchain
@@ -41,6 +45,7 @@ jobs:
         build-args: TARGET=${{ matrix.target }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        no-cache-filters: setup,deploy
         context: .
         outputs: type=tar,dest=${{ matrix.target }}.tar
         target: deploy
