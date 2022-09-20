@@ -26,7 +26,7 @@
  #endif
 --- a/include/sys/stat.h	2022-04-07 12:12:40.000000000 -0500
 +++ b/include/sys/stat.h	2022-09-02 11:57:58.000000000 -0500
-@@ -70,10 +70,49 @@
+@@ -70,10 +70,51 @@
  #define UTIME_NOW  0x3fffffff
  #define UTIME_OMIT 0x3ffffffe
  
@@ -45,10 +45,12 @@
 +int __fxstatat(int, int, const char *__restrict, struct stat *__restrict, int);
 +
 +// See glibc xstatver.h
-+#if defined(__x86_64__) || defined(__alpha__) || defined(__ia64__) || defined(__s390__)
++#if defined(__aarch64__) || (defined(__riscv) && __WORDSIZE == 64)
 +#define GLIBC_ABI_XSTAT_VERSION 0
-+#else
++#elif defined(__x86_64__) || defined(__ia64__) || defined(__powerpc64__) || defined(__s390x__)
 +#define GLIBC_ABI_XSTAT_VERSION 1
++#else
++#define GLIBC_ABI_XSTAT_VERSION 3
 +#endif
 +
 +__attribute__((__weak__)) int stat(const char *__restrict path, struct stat *__restrict buf)
@@ -76,7 +78,7 @@
  int chmod(const char *, mode_t);
  int fchmod(int, mode_t);
  int fchmodat(int, const char *, mode_t, int);
-@@ -84,8 +123,34 @@
+@@ -84,8 +125,34 @@
  int mkfifoat(int, const char *, mode_t);
  
  #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
@@ -91,7 +93,7 @@
 +int __xmknodat(int, int, const char *, mode_t, dev_t*);
 +
 +// See glibc xstatver.h
-+#if defined(__x86_64__) || defined(__alpha__) || defined(__ia64__) || defined(__s390__)
++#if defined(__x86_64__) || defined(__alpha__) || defined(__ia64__) || defined(__s390x__)
 +#define GLIBC_ABI_XMKNOD_VERSION 0
 +#else
 +#define GLIBC_ABI_XMKNOD_VERSION 1
@@ -162,3 +164,14 @@
  extern int optreset;
  #endif
  
+--- a/src/exit/at_quick_exit.c	2022-04-07 12:12:40.000000000 -0500
++++ b/src/exit/at_quick_exit.c	2022-09-18 20:25:27.000000000 -0500
+@@ -31,3 +31,8 @@
+ 	UNLOCK(lock);
+ 	return r;
+ }
++
++int __cxa_at_quick_exit(void (*func)(void *), void *dso)
++{
++	return at_quick_exit((void (*)(void))func);
++}

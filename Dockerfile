@@ -1,17 +1,16 @@
 # Build using Alpine image
-FROM alpine AS base
-RUN apk add file make g++ git patch xz
-RUN apk add autoconf automake bison gettext-dev libtool pkgconfig
+FROM alpine AS setup
+RUN apk add --no-cache file make g++ git patch xz
 
+# (Needed for libuuid)
+RUN apk add --no-cache autoconf automake bison gettext-dev libtool pkgconfig
 
-FROM base AS setup
 RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	sed -i -e 's/xvf/xf/' -e 's,hashes/%.sha1 |,| hashes/%.sha1,' musl-cross-make/Makefile && \
 	ln -s gcc-11.2.0 musl-cross-make/patches/gcc-11.3.0 && \
 	ln -s musl musl-cross-make/patches/musl-$(sed -nre 's/^MUSL_VER\s*=\s*([0-9.]+)\s*$/\1/p' musl-cross-make/Makefile)
 
 COPY . musl-cross-make/
-RUN find musl-cross-make | xargs touch -h -r /bin
 
 
 # Build the toolchain
