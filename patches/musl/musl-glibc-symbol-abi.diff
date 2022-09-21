@@ -1,14 +1,10 @@
---- a/include/sys/random.h	2022-04-07 12:12:40.000000000 -0500
-+++ b/include/sys/random.h	2022-09-14 21:17:51.000000000 -0500
-@@ -12,8 +12,23 @@
- #define GRND_RANDOM	0x0002
- #define GRND_INSECURE	0x0004
+--- a/include/sys/random.h
++++ b/include/sys/random.h
+@@ -14,6 +14,19 @@
  
-+#ifdef NO_GLIBC_ABI_COMPATIBLE
-+
  ssize_t getrandom(void *, size_t, unsigned);
  
-+#else
++#ifndef NO_GLIBC_ABI_COMPATIBLE
 +
 +#include <sys/syscall.h>
 +
@@ -24,20 +20,14 @@
  #ifdef __cplusplus
  }
  #endif
---- a/include/sys/stat.h	2022-04-07 12:12:40.000000000 -0500
-+++ b/include/sys/stat.h	2022-09-02 11:57:58.000000000 -0500
-@@ -70,10 +70,51 @@
- #define UTIME_NOW  0x3fffffff
- #define UTIME_OMIT 0x3ffffffe
- 
-+#ifdef NO_GLIBC_ABI_COMPATIBLE
-+
- int stat(const char *__restrict, struct stat *__restrict);
+--- a/include/sys/stat.h
++++ b/include/sys/stat.h
+@@ -74,6 +74,45 @@
  int fstat(int, struct stat *);
  int lstat(const char *__restrict, struct stat *__restrict);
  int fstatat(int, const char *__restrict, struct stat *__restrict, int);
 +
-+#else
++#ifndef NO_GLIBC_ABI_COMPATIBLE
 +
 +int __xstat(int, const char *__restrict, struct stat *__restrict);
 +int __fxstat(int, int, struct stat *);
@@ -78,16 +68,12 @@
  int chmod(const char *, mode_t);
  int fchmod(int, mode_t);
  int fchmodat(int, const char *, mode_t, int);
-@@ -84,8 +125,34 @@
- int mkfifoat(int, const char *, mode_t);
- 
+@@ -86,6 +125,30 @@
  #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
-+#ifdef NO_GLIBC_ABI_COMPATIBLE
-+
  int mknod(const char *, mode_t, dev_t);
  int mknodat(int, const char *, mode_t, dev_t);
 +
-+#else
++#ifndef NO_GLIBC_ABI_COMPATIBLE
 +
 +int __xmknod(int, const char *, mode_t, dev_t*);
 +int __xmknodat(int, int, const char *, mode_t, dev_t*);
@@ -113,18 +99,62 @@
  #endif
  
  int futimens(int, const struct timespec [2]);
---- a/include/unistd.h	2022-04-07 12:12:40.000000000 -0500
-+++ b/include/unistd.h	2022-09-14 21:37:17.000000000 -0500
-@@ -180,7 +180,48 @@
- long syscall(long, ...);
+--- a/include/pthread.h
++++ b/include/pthread.h
+@@ -198,6 +198,19 @@
+ 
+ int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
+ 
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++
++extern void *__dso_handle __attribute__((__visibility__("hidden")));
++
++int __register_atfork(void (*)(void), void (*)(void), void (*)(void), void *);
++
++__attribute__((__weak__)) int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
++{
++	return __register_atfork(prepare, parent, child, __dso_handle);
++}
++
++#endif
++
+ int pthread_getconcurrency(void);
+ int pthread_setconcurrency(int);
+ 
+--- a/include/stdlib.h
++++ b/include/stdlib.h
+@@ -50,6 +50,23 @@
+ int at_quick_exit (void (*) (void));
+ _Noreturn void quick_exit (int);
+ 
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++
++int __cxa_atexit(void (*)(void *), void *, void *);
++int __cxa_at_quick_exit(void (*)(void *), void *);
++
++__attribute__((__weak__)) int atexit(void (*func)(void))
++{
++	return __cxa_atexit((void (*)(void *))func, 0, 0);
++}
++
++__attribute__((__weak__)) int at_quick_exit(void (*func)(void))
++{
++	return __cxa_at_quick_exit((void (*)(void *))func, 0);
++}
++
++#endif
++
+ char *getenv (const char *);
+ 
+ int system (const char *);
+--- a/include/unistd.h
++++ b/include/unistd.h
+@@ -181,6 +181,44 @@
  int execvpe(const char *, char *const [], char *const []);
  int issetugid(void);
-+
-+#ifdef NO_GLIBC_ABI_COMPATIBLE
-+
  int getentropy(void *, size_t);
 +
-+#else
++#ifndef NO_GLIBC_ABI_COMPATIBLE
 +
 +#include <errno.h>
 +#include <sys/syscall.h>
@@ -164,8 +194,8 @@
  extern int optreset;
  #endif
  
---- a/src/exit/at_quick_exit.c	2022-04-07 12:12:40.000000000 -0500
-+++ b/src/exit/at_quick_exit.c	2022-09-18 20:25:27.000000000 -0500
+--- a/src/exit/at_quick_exit.c
++++ b/src/exit/at_quick_exit.c
 @@ -31,3 +31,8 @@
  	UNLOCK(lock);
  	return r;
@@ -174,4 +204,15 @@
 +int __cxa_at_quick_exit(void (*func)(void *), void *dso)
 +{
 +	return at_quick_exit((void (*)(void))func);
++}
+--- a/src/thread/pthread_atfork.c
++++ b/src/thread/pthread_atfork.c
+@@ -47,3 +47,8 @@
+ 	UNLOCK(lock);
+ 	return 0;
+ }
++
++int __register_atfork (void (*prepare)(void), void (*parent)(void), void (*child)(void), void *)
++{
++	return pthread_atfork(prepare, parent, child);
 +}
