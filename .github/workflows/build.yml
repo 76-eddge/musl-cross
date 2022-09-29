@@ -50,8 +50,23 @@ jobs:
         outputs: type=tar,dest=${{ matrix.target }}.tar
         target: deploy
 
-    - name: Test Toolchain
-      run: tar -xf ${{ matrix.target }}.tar && make SRC_DIR=test CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2' -f test/Makefile version tests
+    - name: Test Toolchain - Compile
+      run: |
+        ls -l ${{ matrix.target }}.tar
+        tar -xf ${{ matrix.target }}.tar
+        make SRC_DIR=test BIN_DIR=cc-bin CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2 -Wall' -f test/Makefile version tests
+
+    - name: Test Toolchain - Run
+      if: matrix.target == 'x86_64-linux-musl'
+      run: |
+        make SRC_DIR=test BIN_DIR=cc-bin CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2 -Wall' PRE_SO_TEST="${{ matrix.target }}/lib/ld-*" -f test/Makefile run-tests
+        make SRC_DIR=test BIN_DIR=native-bin CC_DIR=cc-bin CXX=g++ CXXFLAGS='-O2 -Wall' -f test/Makefile run-tests
+        for i in 76eddge/build-images:cxx-Xenial,/usr/bin/g++ 76eddge/build-images:cxx-Trusty,/usr/bin/g++ 76eddge/build-images:cxx-CentOS6,/usr/bin/g++ 76eddge/build-images:cxx-CentOS6,/opt/rh/devtoolset-7/root/usr/bin/g++ 76eddge/build-images:cxx-Alpine,/usr/bin/g++
+        do
+          IMAGE=$(echo "$i" | sed -e 's/,.*//')
+          CMD="docker run -i --rm -v $(pwd):/build -w /build"
+          make SRC_DIR=test BIN_DIR=$(echo "$IMAGE" | sed -e 's/.*://')-$(echo -n "$i" | sha1sum | head -c 8) CC_DIR=cc-bin CXX="$CMD $IMAGE $(echo "$i,g++" | sed -e 's/[^,]*,//' -e 's/,.*//')" CXXFLAGS='-O2 -Wall -Wl,--no-as-needed' PRE_TEST="$CMD --entrypoint='' $IMAGE" PRE_SO_TEST="$CMD $IMAGE" -f test/Makefile run-tests
+        done
 
     - name: Archive Toolchain
       if: github.event_name == 'release'

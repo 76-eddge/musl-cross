@@ -101,7 +101,7 @@
  int futimens(int, const struct timespec [2]);
 --- a/include/pthread.h
 +++ b/include/pthread.h
-@@ -198,6 +198,19 @@
+@@ -198,6 +198,22 @@
  
  int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
  
@@ -109,7 +109,10 @@
 +
 +extern void *__dso_handle __attribute__((__visibility__("hidden")));
 +
-+int __register_atfork(void (*)(void), void (*)(void), void (*)(void), void *);
++__attribute__((__weak__)) int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *)
++{
++	return pthread_atfork(prepare, parent, child);
++}
 +
 +__attribute__((__weak__)) int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 +{
@@ -123,23 +126,29 @@
  
 --- a/include/stdlib.h
 +++ b/include/stdlib.h
-@@ -50,6 +50,23 @@
+@@ -50,6 +50,29 @@
  int at_quick_exit (void (*) (void));
  _Noreturn void quick_exit (int);
  
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
 +
++extern void *__dso_handle __attribute__((__visibility__("hidden")));
++
 +int __cxa_atexit(void (*)(void *), void *, void *);
-+int __cxa_at_quick_exit(void (*)(void *), void *);
++
++__attribute__((__weak__)) int __cxa_at_quick_exit(void (*func)(void *), void *)
++{
++	return at_quick_exit((void (*)(void))func);
++}
 +
 +__attribute__((__weak__)) int atexit(void (*func)(void))
 +{
-+	return __cxa_atexit((void (*)(void *))func, 0, 0);
++	return __cxa_atexit((void (*)(void *))func, 0, __dso_handle);
 +}
 +
 +__attribute__((__weak__)) int at_quick_exit(void (*func)(void))
 +{
-+	return __cxa_at_quick_exit((void (*)(void *))func, 0);
++	return __cxa_at_quick_exit((void (*)(void *))func, __dso_handle);
 +}
 +
 +#endif
@@ -196,12 +205,14 @@
  
 --- a/src/exit/at_quick_exit.c
 +++ b/src/exit/at_quick_exit.c
-@@ -31,3 +31,8 @@
+@@ -31,3 +31,10 @@
  	UNLOCK(lock);
  	return r;
  }
 +
-+int __cxa_at_quick_exit(void (*func)(void *), void *dso)
++const void * const __dso_handle __attribute__((__visibility__("hidden"))) = &__dso_handle;
++
++int __cxa_at_quick_exit(void (*func)(void *), void *dso_handle)
 +{
 +	return at_quick_exit((void (*)(void))func);
 +}
@@ -212,7 +223,7 @@
  	return 0;
  }
 +
-+int __register_atfork (void (*prepare)(void), void (*parent)(void), void (*child)(void), void *)
++int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle)
 +{
 +	return pthread_atfork(prepare, parent, child);
 +}
