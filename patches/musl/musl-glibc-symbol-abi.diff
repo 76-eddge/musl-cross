@@ -22,17 +22,23 @@
  #endif
 --- a/include/sys/stat.h
 +++ b/include/sys/stat.h
-@@ -74,6 +74,45 @@
+@@ -74,6 +74,53 @@
  int fstat(int, struct stat *);
  int lstat(const char *__restrict, struct stat *__restrict);
  int fstatat(int, const char *__restrict, struct stat *__restrict, int);
 +
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
 +
-+int __xstat(int, const char *__restrict, struct stat *__restrict);
-+int __fxstat(int, int, struct stat *);
-+int __lxstat(int, const char *__restrict, struct stat *__restrict);
-+int __fxstatat(int, int, const char *__restrict, struct stat *__restrict, int);
++#if __WORDSIZE == 32
++#define GLIBC_STAT_FN(X) X ## 64
++#else
++#define GLIBC_STAT_FN(X) X
++#endif
++
++int GLIBC_STAT_FN(__xstat)(int, const char *__restrict, struct stat *__restrict);
++int GLIBC_STAT_FN(__fxstat)(int, int, struct stat *);
++int GLIBC_STAT_FN(__lxstat)(int, const char *__restrict, struct stat *__restrict);
++int GLIBC_STAT_FN(__fxstatat)(int, int, const char *__restrict, struct stat *__restrict, int);
 +
 +// See glibc xstatver.h
 +#if defined(__aarch64__) || (defined(__riscv) && __WORDSIZE == 64)
@@ -45,30 +51,32 @@
 +
 +__attribute__((__weak__)) int stat(const char *__restrict path, struct stat *__restrict buf)
 +{
-+	return __xstat(GLIBC_ABI_XSTAT_VERSION, path, buf);
++	return GLIBC_STAT_FN(__xstat)(GLIBC_ABI_XSTAT_VERSION, path, buf);
 +}
 +
 +__attribute__((__weak__)) int fstat(int fd, struct stat *buf)
 +{
-+	return __fxstat(GLIBC_ABI_XSTAT_VERSION, fd, buf);
++	return GLIBC_STAT_FN(__fxstat)(GLIBC_ABI_XSTAT_VERSION, fd, buf);
 +}
 +
 +__attribute__((__weak__)) int lstat(const char *__restrict path, struct stat *__restrict buf)
 +{
-+	return __lxstat(GLIBC_ABI_XSTAT_VERSION, path, buf);
++	return GLIBC_STAT_FN(__lxstat)(GLIBC_ABI_XSTAT_VERSION, path, buf);
 +}
 +
 +__attribute__((__weak__)) int fstatat(int fd, const char *__restrict path, struct stat *__restrict buf, int flag)
 +{
-+	return __fxstatat(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag);
++	return GLIBC_STAT_FN(__fxstatat)(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag);
 +}
++
++#undef GLIBC_STAT_FN
 +
 +#endif
 +
  int chmod(const char *, mode_t);
  int fchmod(int, mode_t);
  int fchmodat(int, const char *, mode_t, int);
-@@ -86,6 +125,30 @@
+@@ -86,6 +133,30 @@
  #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
  int mknod(const char *, mode_t, dev_t);
  int mknodat(int, const char *, mode_t, dev_t);
@@ -205,12 +213,10 @@
  
 --- a/src/exit/at_quick_exit.c
 +++ b/src/exit/at_quick_exit.c
-@@ -31,3 +31,10 @@
+@@ -31,3 +31,8 @@
  	UNLOCK(lock);
  	return r;
  }
-+
-+const void * const __dso_handle __attribute__((__visibility__("hidden"))) = &__dso_handle;
 +
 +int __cxa_at_quick_exit(void (*func)(void *), void *dso_handle)
 +{

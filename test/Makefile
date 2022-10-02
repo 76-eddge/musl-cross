@@ -7,9 +7,11 @@ PRE_SO_TEST :=$(PRE_TEST)
 LIBS :=-ldl -lm -lrt -luuid -pthread
 MD :=mkdir -p
 PATCH_ELF :=$(if $(findstring /, $(CXX)), $(dir $(CXX)))patchelf
+CC_CXX :=$(CXX)
+CC_CXXFLAGS :=$(CXXFLAGS)
 
 version:
-	$(CXX) --version
+	$(CC_CXX) --version
 
 tests: $(TESTS)
 
@@ -36,8 +38,8 @@ $(BIN_DIR)/test.exe: $(CC_DIR)/test.exe
 endif
 
 $(CC_DIR)/%.so: $(SRC_DIR)/%So.cxx | $(CC_DIR)
-	$(CXX) -shared -fPIC $(CXXFLAGS) -o $@ $< $(LIBS)
+	$(CC_CXX) -shared -fPIC $(CC_CXXFLAGS) -o $@ $< $(LIBS)
 	$(PATCH_ELF) --remove-needed libc.so $@
 
 $(CC_DIR)/%.exe: $(SRC_DIR)/%Exe.cxx | $(CC_DIR)
-	$(CXX) -static $(CXXFLAGS) -o $@ $< $(LIBS)
+	$(CC_CXX) -static $(CC_CXXFLAGS) -o $@ $< $(LIBS)
