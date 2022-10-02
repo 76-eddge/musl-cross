@@ -17,5 +17,9 @@ int runSO(int argc, const char *argv[])
 		std::cout << " " << argv[i];
 
 	std::cout << std::endl;
+
+	if (!test::LibC::WithRandom([](std::size_t random) { std::cout << " Random: " << random << std::endl; }))
+		std::cout << " Random functions unsupported" << std::endl;
+
 	return 0;
 }

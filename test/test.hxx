@@ -6,6 +6,7 @@ extern "C" {
 #include <dlfcn.h>
 #include <math.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <time.h>
 }
 
@@ -13,6 +14,19 @@ extern "C" {
 #define REQUIRE(X) do { bool REQUIRE_result_ = bool(X); if (!REQUIRE_result_) throw std::runtime_error("Assertion failed: " QUOTE(X) " at " QUOTE(__FILE__) ":" QUOTE(__LINE__)); } while (false)
 
 namespace test {
+
+class LibC {
+public:
+	static bool WithRandom(void (*withRandom)(std::size_t)) {
+		std::size_t random = 0;
+
+		if (getentropy(&random, sizeof(random)) != 0)
+			return false;
+
+		withRandom(random);
+		return true;
+	}
+};
 
 class LibDL {
 public:
