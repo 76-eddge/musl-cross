@@ -29,7 +29,7 @@
 +
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
 +
-+#if __WORDSIZE == 32
++#if _REDIR_TIME64
 +#define GLIBC_STAT_FN(X) X ## 64
 +#else
 +#define GLIBC_STAT_FN(X) X
@@ -41,7 +41,7 @@
 +int GLIBC_STAT_FN(__fxstatat)(int, int, const char *__restrict, struct stat *__restrict, int);
 +
 +// See glibc xstatver.h
-+#if defined(__aarch64__) || (defined(__riscv) && __WORDSIZE == 64)
++#if defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
 +#define GLIBC_ABI_XSTAT_VERSION 0
 +#elif defined(__x86_64__) || defined(__ia64__) || defined(__powerpc64__) || defined(__s390x__)
 +#define GLIBC_ABI_XSTAT_VERSION 1
