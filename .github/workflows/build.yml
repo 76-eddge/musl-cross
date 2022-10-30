@@ -21,9 +21,9 @@ jobs:
     - id: set-matrix
       run: |
         if [ "$GITHUB_EVENT_NAME" = "release" ] || [ "$GITHUB_REF_NAME" = "main" ]; then
-          echo '::set-output name=matrix::{"target":["x86_64-linux-musl","x86_64-linux-muslx32","i686-linux-musl","powerpc64le-linux-musl","arm-linux-musleabihf","aarch64-linux-musl"]}'
+          echo 'matrix={"target":["x86_64-linux-musl","x86_64-linux-muslx32","i686-linux-musl","powerpc64le-linux-musl","arm-linux-musleabihf","aarch64-linux-musl"]}' > $GITHUB_OUTPUT
         else
-          echo '::set-output name=matrix::{"target":["x86_64-linux-musl"]}'
+          echo 'matrix={"target":["x86_64-linux-musl"]}' > $GITHUB_OUTPUT
         fi
 
   build:
