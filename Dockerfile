@@ -30,7 +30,8 @@ ARG TARGET=x86_64-linux-musl
 # s390x-linux-musl
 # sh*[eb]-linux-musl[fdpic][sf]
 # x86_64-linux-musl[x32]
-ARG GCC_VER=11.3.0
+ARG GCC_VER=12.2.0
+# 12.2.0
 # 11.3.0
 # 10.3.0
 # 9.4.0
@@ -74,7 +75,7 @@ RUN make -C musl-cross-make \
 	make -C musl-cross-make clean
 
 # Install patchelf
-ARG PATCHELF_GZ_URI=https://github.com/NixOS/patchelf/releases/download/0.15.0/patchelf-0.15.0-x86_64.tar.gz
+ARG PATCHELF_GZ_URI=https://github.com/NixOS/patchelf/releases/download/0.16.1/patchelf-0.16.1-x86_64.tar.gz
 RUN (cat musl-cross-make/sources/patchelf-*.tar.gz || wget -O - "$PATCHELF_GZ_URI") | tar xz -C musl-cross-make/output ./bin/patchelf
 
 # Build libuuid
