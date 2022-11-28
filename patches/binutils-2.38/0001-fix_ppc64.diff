@@ -1,0 +1,762 @@
+--- a/bfd/elf64-ppc.c
++++ b/bfd/elf64-ppc.c
+@@ -1997,7 +1997,8 @@
+ enum _ppc64_sec_type {
+   sec_normal = 0,
+   sec_opd = 1,
+-  sec_toc = 2
++  sec_toc = 2,
++  sec_stub = 3
+ };
+ 
+ struct _ppc64_elf_section_data
+@@ -2027,6 +2028,9 @@
+       /* And the relocation addend.  */
+       bfd_vma *add;
+     } toc;
++
++    /* Stub debugging.  */
++    struct ppc_stub_hash_entry *last_ent;
+   } u;
+ 
+   enum _ppc64_sec_type sec_type:2;
+@@ -3080,6 +3084,9 @@
+ 
+   /* Symbol st_other.  */
+   unsigned char other;
++
++  /* Debug: Track hash table traversal.  */
++  unsigned int id;
+ };
+ 
+ struct ppc_branch_hash_entry
+@@ -3270,10 +3277,14 @@
+   /* The size of reliplt used by got entry relocs.  */
+   bfd_size_type got_reli_size;
+ 
+-  /* DT_RELR array of r_offset.  */
++  /* DT_RELR array of section/r_offset.  */
+   size_t relr_alloc;
+   size_t relr_count;
+-  bfd_vma *relr_addr;
++  struct
++  {
++    asection *sec;
++    bfd_vma off;
++  } *relr;
+ 
+   /* Statistics.  */
+   unsigned long stub_count[ppc_stub_save_res];
+@@ -3313,6 +3324,9 @@
+ 
+   /* Whether any code linked seems to be Power10.  */
+   unsigned int has_power10_relocs:1;
++
++  /* Incremented once for each stub sized.  */
++  unsigned int stub_id;
+ 
+   /* Incremented every time we size stubs.  */
+   unsigned int stub_iteration;
+@@ -3394,7 +3408,9 @@
+       eh->target_section = NULL;
+       eh->h = NULL;
+       eh->plt_ent = NULL;
++      eh->symtype = 0;
+       eh->other = 0;
++      eh->id = 0;
+     }
+ 
+   return entry;
+@@ -3954,7 +3970,7 @@
+ 
+   old_type = stub_entry->type;
+   if (old_type.main == ppc_stub_plt_branch)
+-    old_type.main += ppc_stub_long_branch - ppc_stub_plt_branch;
++    old_type.main = ppc_stub_long_branch;
+ 
+   if (old_type.main != stub_type.main
+       || (old_type.sub != stub_type.sub
+@@ -5321,33 +5337,17 @@
+ 	  if (NO_OPD_RELOCS && is_opd)
+ 	    break;
+ 
+-	  /* If we are creating a shared library, and this is a reloc
+-	     against a global symbol, or a non PC relative reloc
+-	     against a local symbol, then we need to copy the reloc
+-	     into the shared library.  However, if we are linking with
+-	     -Bsymbolic, we do not need to copy a reloc against a
+-	     global symbol which is defined in an object we are
+-	     including in the link (i.e., DEF_REGULAR is set).  At
+-	     this point we have not seen all the input files, so it is
+-	     possible that DEF_REGULAR is not set now but will be set
+-	     later (it is never cleared).  In case of a weak definition,
+-	     DEF_REGULAR may be cleared later by a strong definition in
+-	     a shared library.  We account for that possibility below by
+-	     storing information in the dyn_relocs field of the hash
+-	     table entry.  A similar situation occurs when creating
+-	     shared libraries and symbol visibility changes render the
+-	     symbol local.
+-
+-	     If on the other hand, we are creating an executable, we
+-	     may need to keep relocations for symbols satisfied by a
+-	     dynamic library if we manage to avoid copy relocs for the
+-	     symbol.  */
++	  /* Set up information for symbols that might need dynamic
++	     relocations.  At this point in linking we have read all
++	     the input files and resolved most symbols, but have not
++	     yet decided whether symbols are dynamic or finalized
++	     symbol flags.  In some cases we might be setting dynamic
++	     reloc info for symbols that do not end up needing such.
++	     That's OK, adjust_dynamic_symbol and allocate_dynrelocs
++	     work together with this code.  */
+ 	dodyn:
+ 	  if ((h != NULL
+-	       && (h->root.type == bfd_link_hash_defweak
+-		   || (!h->def_regular && !h->root.ldscript_def)))
+-	      || (h != NULL
+-		  && !SYMBOL_REFERENCES_LOCAL (info, h))
++	       && !SYMBOL_REFERENCES_LOCAL (info, h))
+ 	      || (bfd_link_pic (info)
+ 		  && (h != NULL
+ 		      ? !bfd_is_abs_symbol (&h->root)
+@@ -7242,10 +7242,7 @@
+     }
+ 
+   if ((h != NULL
+-       && (h->root.type == bfd_link_hash_defweak
+-	   || (!h->def_regular && !h->root.ldscript_def)))
+-      || (h != NULL
+-	  && !SYMBOL_REFERENCES_LOCAL (info, h))
++       && !SYMBOL_REFERENCES_LOCAL (info, h))
+       || (bfd_link_pic (info)
+ 	  && (h != NULL
+ 	      ? !bfd_is_abs_symbol (&h->root)
+@@ -10292,22 +10289,18 @@
+       local_plt = (struct plt_entry **) end_lgot_ents;
+       end_local_plt = local_plt + locsymcount;
+       lgot_masks = (unsigned char *) end_local_plt;
+-      local_syms = NULL;
+-      if (bfd_link_pic (info))
+-	{
+-	  local_syms = (Elf_Internal_Sym *) symtab_hdr->contents;
+-	  if (local_syms == NULL && locsymcount != 0)
+-	    {
+-	      local_syms = bfd_elf_get_elf_syms (ibfd, symtab_hdr, locsymcount,
+-						 0, NULL, NULL, NULL);
+-	      if (local_syms == NULL)
+-		return false;
+-	    }
+-	}
++      local_syms = (Elf_Internal_Sym *) symtab_hdr->contents;
++      if (local_syms == NULL && locsymcount != 0)
++	{
++	  local_syms = bfd_elf_get_elf_syms (ibfd, symtab_hdr, locsymcount,
++					     0, NULL, NULL, NULL);
++	  if (local_syms == NULL)
++	    return false;
++	}
+       s = ppc64_elf_tdata (ibfd)->got;
+       for (isym = local_syms;
+ 	   lgot_ents < end_lgot_ents;
+-	   ++lgot_ents, ++lgot_masks, isym != NULL && isym++)
++	   ++lgot_ents, ++lgot_masks, isym++)
+ 	{
+ 	  struct got_entry **pent, *ent;
+ 
+@@ -11191,29 +11184,22 @@
+    boundaries if we align, then return the padding needed to do so.  */
+ 
+ static inline unsigned int
+-plt_stub_pad (struct ppc_link_hash_table *htab,
+-	      struct ppc_stub_hash_entry *stub_entry,
++plt_stub_pad (int plt_stub_align,
+ 	      bfd_vma stub_off,
+-	      bfd_vma plt_off,
+-	      unsigned int odd)
++	      unsigned int stub_size)
+ {
+-  int stub_align;
+-  unsigned stub_size;
++  unsigned int stub_align;
+ 
+-  if (htab->params->plt_stub_align >= 0)
++  if (plt_stub_align >= 0)
++    stub_align = 1u << plt_stub_align;
++  else
+     {
+-      stub_align = 1 << htab->params->plt_stub_align;
+-      if ((stub_off & (stub_align - 1)) != 0)
+-	return stub_align - (stub_off & (stub_align - 1));
+-      return 0;
++      stub_align = 1u << -plt_stub_align;
++      if (((stub_off + stub_size - 1) & -stub_align) - (stub_off & -stub_align)
++	  <= ((stub_size - 1) & -stub_align))
++	return 0;
+     }
+-
+-  stub_align = 1 << -htab->params->plt_stub_align;
+-  stub_size = plt_stub_size (htab, stub_entry, plt_off, odd);
+-  if (((stub_off + stub_size - 1) & -stub_align) - (stub_off & -stub_align)
+-      > ((stub_size - 1) & -stub_align))
+-    return stub_align - (stub_off & (stub_align - 1));
+-  return 0;
++  return stub_align - 1 - ((stub_off - 1) & (stub_align - 1));
+ }
+ 
+ /* Build a toc using .plt call stub.  */
+@@ -11656,6 +11642,45 @@
+   return r2off;
+ }
+ 
++/* Debug dump.  */
++
++static void
++dump_stub (const char *header,
++	   struct ppc_stub_hash_entry *stub_entry,
++	   size_t end_offset)
++{
++  const char *t1, *t2, *t3;
++  switch (stub_entry->type.main)
++    {
++    case ppc_stub_none:		t1 = "none";		break;
++    case ppc_stub_long_branch:	t1 = "long_branch";	break;
++    case ppc_stub_plt_branch:	t1 = "plt_branch";	break;
++    case ppc_stub_plt_call:	t1 = "plt_call";	break;
++    case ppc_stub_global_entry:	t1 = "global_entry";	break;
++    case ppc_stub_save_res:	t1 = "save_res";	break;
++    default:			t1 = "???";		break;
++    }
++  switch (stub_entry->type.sub)
++    {
++    case ppc_stub_toc:		t2 = "toc";		break;
++    case ppc_stub_notoc:	t2 = "notoc";		break;
++    case ppc_stub_p9notoc:	t2 = "p9notoc";		break;
++    default:			t2 = "???";		break;
++    }
++  t3 = stub_entry->type.r2save ? "r2save" : "";
++  fprintf (stderr, "%s id = %u type = %s:%s:%s\n",
++	   header, stub_entry->id, t1, t2, t3);
++  fprintf (stderr, "name = %s\n", stub_entry->root.string);
++  fprintf (stderr, "offset = 0x%" BFD_VMA_FMT "x:", stub_entry->stub_offset);
++  for (size_t i = stub_entry->stub_offset; i < end_offset; i += 4)
++    {
++      asection *stub_sec = stub_entry->group->stub_sec;
++      uint32_t *p = (uint32_t *) (stub_sec->contents + i);
++      fprintf (stderr, " %08x", (uint32_t) bfd_get_32 (stub_sec->owner, p));
++    }
++  fprintf (stderr, "\n");
++}
++
+ static bool
+ ppc_build_one_stub (struct bfd_hash_entry *gen_entry, void *in_arg)
+ {
+@@ -11700,7 +11725,29 @@
+   if (htab == NULL)
+     return false;
+ 
+-  BFD_ASSERT (stub_entry->stub_offset >= stub_entry->group->stub_sec->size);
++  struct _ppc64_elf_section_data *esd
++    = ppc64_elf_section_data (stub_entry->group->stub_sec);
++  ++htab->stub_id;
++  if (stub_entry->id != htab->stub_id
++      || (stub_entry->type.main != ppc_stub_save_res
++	  && stub_entry->stub_offset < stub_entry->group->stub_sec->size))
++    {
++      BFD_ASSERT (0);
++      if (stub_entry->id != htab->stub_id)
++	fprintf (stderr, "Expected id %u, got %u\n",
++		 htab->stub_id, stub_entry->id);
++      if (stub_entry->stub_offset < stub_entry->group->stub_sec->size)
++	fprintf (stderr, "Expected offset >= %" BFD_VMA_FMT "x, got %"
++		 BFD_VMA_FMT "x\n", stub_entry->group->stub_sec->size,
++		 stub_entry->stub_offset);
++      if (esd->sec_type == sec_stub)
++	dump_stub ("Previous:", esd->u.last_ent, stub_entry->stub_offset);
++      dump_stub ("Current:", stub_entry, 0);
++    }
++  if (esd->sec_type == sec_normal)
++    esd->sec_type = sec_stub;
++  if (esd->sec_type == sec_stub)
++    esd->u.last_ent = stub_entry;
+   loc = stub_entry->group->stub_sec->contents + stub_entry->stub_offset;
+ 
+   htab->stub_count[stub_entry->type.main - 1] += 1;
+@@ -12192,7 +12239,7 @@
+   struct ppc_link_hash_table *htab;
+   asection *plt;
+   bfd_vma targ, off, r2off;
+-  unsigned int size, extra, lr_used, delta, odd;
++  unsigned int size, pad, extra, lr_used, delta, odd;
+   bfd_vma stub_offset;
+ 
+   /* Massage our args to the form they really have.  */
+@@ -12227,6 +12274,7 @@
+   if (htab->stub_iteration > STUB_SHRINK_ITER
+       && stub_entry->stub_offset > stub_offset)
+     stub_offset = stub_entry->stub_offset;
++  stub_entry->id = ++htab->stub_id;
+ 
+   if (stub_entry->h != NULL
+       && stub_entry->h->save_res
+@@ -12246,7 +12294,7 @@
+     {
+       /* Reset the stub type from the plt branch variant in case we now
+ 	 can reach with a shorter stub.  */
+-      stub_entry->type.main += ppc_stub_long_branch - ppc_stub_plt_branch;
++      stub_entry->type.main = ppc_stub_long_branch;
+     }
+ 
+   if (stub_entry->type.main == ppc_stub_long_branch
+@@ -12328,7 +12376,7 @@
+ 	      stub_entry->group->stub_sec->flags |= SEC_RELOC;
+ 	    }
+ 
+-	  stub_entry->type.main += ppc_stub_plt_branch - ppc_stub_long_branch;
++	  stub_entry->type.main = ppc_stub_plt_branch;
+ 	  if (!stub_entry->type.r2save)
+ 	    {
+ 	      size = 12;
+@@ -12346,6 +12394,8 @@
+ 	      if (PPC_LO (r2off) != 0)
+ 		size += 4;
+ 	    }
++	  pad = plt_stub_pad (htab->params->plt_stub_align, stub_offset, size);
++	  stub_offset += pad;
+ 	}
+       else if (info->emitrelocations)
+ 	{
+@@ -12368,6 +12418,38 @@
+       odd = off & 4;
+       off = targ - off;
+ 
++      if (stub_entry->type.sub == ppc_stub_notoc)
++	extra = size_power10_offset (off, odd);
++      else
++	extra = size_offset (off - 8);
++      /* Include branch insn plus those in the offset sequence.  */
++      size += 4 + extra;
++
++      /* If the branch can't reach, use a plt_branch.
++	 The branch insn is at the end, or "extra" bytes along.  So
++	 its offset will be "extra" bytes less that that already
++	 calculated.  */
++      if (off - extra + (1 << 25) >= (bfd_vma) (1 << 26))
++	{
++	  stub_entry->type.main = ppc_stub_plt_branch;
++	  size += 4;
++	  pad = plt_stub_pad (htab->params->plt_stub_align, stub_offset, size);
++	  if (pad != 0)
++	    {
++	      stub_offset += pad;
++	      off -= pad;
++	      odd ^= pad & 4;
++	      size -= extra;
++	      if (stub_entry->type.sub == ppc_stub_notoc)
++		extra = size_power10_offset (off, odd);
++	      else
++		extra = size_offset (off - 8);
++	      size += extra;
++	    }
++	}
++      else if (info->emitrelocations)
++	stub_entry->group->stub_sec->reloc_count +=1;
++
+       if (info->emitrelocations)
+ 	{
+ 	  unsigned int num_rel;
+@@ -12378,17 +12460,6 @@
+ 	  stub_entry->group->stub_sec->reloc_count += num_rel;
+ 	  stub_entry->group->stub_sec->flags |= SEC_RELOC;
+ 	}
+-
+-      if (stub_entry->type.sub == ppc_stub_notoc)
+-	extra = size_power10_offset (off, odd);
+-      else
+-	extra = size_offset (off - 8);
+-      /* Include branch insn plus those in the offset sequence.  */
+-      size += 4 + extra;
+-      /* The branch insn is at the end, or "extra" bytes along.  So
+-	 its offset will be "extra" bytes less that that already
+-	 calculated.  */
+-      off -= extra;
+ 
+       if (stub_entry->type.sub != ppc_stub_notoc)
+ 	{
+@@ -12404,15 +12475,6 @@
+ 	  stub_entry->group->eh_size += eh_advance_size (delta) + 6;
+ 	  stub_entry->group->lr_restore = lr_used + 8;
+ 	}
+-
+-      /* If the branch can't reach, use a plt_branch.  */
+-      if (off + (1 << 25) >= (bfd_vma) (1 << 26))
+-	{
+-	  stub_entry->type.main += ppc_stub_plt_branch - ppc_stub_long_branch;
+-	  size += 4;
+-	}
+-      else if (info->emitrelocations)
+-	stub_entry->group->stub_sec->reloc_count +=1;
+     }
+   else if (stub_entry->type.sub >= ppc_stub_notoc)
+     {
+@@ -12450,13 +12512,14 @@
+       odd = off & 4;
+       off = targ - off;
+ 
+-      if (htab->params->plt_stub_align != 0)
++      size = plt_stub_size (htab, stub_entry, off, odd);
++      pad = plt_stub_pad (htab->params->plt_stub_align, stub_offset, size);
++      if (pad != 0)
+ 	{
+-	  unsigned pad = plt_stub_pad (htab, stub_entry, stub_offset, off, odd);
+-
+ 	  stub_offset += pad;
+ 	  off -= pad;
+ 	  odd ^= pad & 4;
++	  size = plt_stub_size (htab, stub_entry, off, odd);
+ 	}
+ 
+       if (info->emitrelocations)
+@@ -12469,8 +12532,6 @@
+ 	  stub_entry->group->stub_sec->reloc_count += num_rel;
+ 	  stub_entry->group->stub_sec->flags |= SEC_RELOC;
+ 	}
+-
+-      size = plt_stub_size (htab, stub_entry, off, odd);
+ 
+       if (stub_entry->type.sub != ppc_stub_notoc)
+ 	{
+@@ -12524,12 +12585,9 @@
+ 	     + htab->sec_info[stub_entry->group->link_sec->id].toc_off);
+       off = targ - off;
+ 
+-      if (htab->params->plt_stub_align != 0)
+-	{
+-	  unsigned pad = plt_stub_pad (htab, stub_entry, stub_offset, off, 0);
+-
+-	  stub_offset += pad;
+-	}
++      size = plt_stub_size (htab, stub_entry, off, 0);
++      pad = plt_stub_pad (htab->params->plt_stub_align, stub_offset, size);
++      stub_offset += pad;
+ 
+       if (info->emitrelocations)
+ 	{
+@@ -12541,8 +12599,6 @@
+ 		   : 1));
+ 	  stub_entry->group->stub_sec->flags |= SEC_RELOC;
+ 	}
+-
+-      size = plt_stub_size (htab, stub_entry, off, 0);
+ 
+       if (stub_entry->h != NULL
+ 	  && is_tls_get_addr (&stub_entry->h->elf, htab)
+@@ -12828,22 +12884,18 @@
+       local_plt = (struct plt_entry **) end_lgot_ents;
+       end_local_plt = local_plt + locsymcount;
+       lgot_masks = (unsigned char *) end_local_plt;
+-      local_syms = NULL;
+-      if (bfd_link_pic (info))
+-	{
+-	  local_syms = (Elf_Internal_Sym *) symtab_hdr->contents;
+-	  if (local_syms == NULL && locsymcount != 0)
+-	    {
+-	      local_syms = bfd_elf_get_elf_syms (ibfd, symtab_hdr, locsymcount,
+-						 0, NULL, NULL, NULL);
+-	      if (local_syms == NULL)
+-		return false;
+-	    }
+-	}
++      local_syms = (Elf_Internal_Sym *) symtab_hdr->contents;
++      if (local_syms == NULL && locsymcount != 0)
++	{
++	  local_syms = bfd_elf_get_elf_syms (ibfd, symtab_hdr, locsymcount,
++					     0, NULL, NULL, NULL);
++	  if (local_syms == NULL)
++	    return false;
++	}
+       s = ppc64_elf_tdata (ibfd)->got;
+       for (isym = local_syms;
+ 	   lgot_ents < end_lgot_ents;
+-	   ++lgot_ents, ++lgot_masks, isym != NULL && isym++)
++	   ++lgot_ents, ++lgot_masks, isym++)
+ 	{
+ 	  struct got_entry *ent;
+ 
+@@ -13419,16 +13471,11 @@
+     }
+ }
+ 
+-static int
+-compare_relr_address (const void *arg1, const void *arg2)
+-{
+-  bfd_vma a = *(bfd_vma *) arg1;
+-  bfd_vma b = *(bfd_vma *) arg2;
+-  return a < b ? -1 : a > b ? 1 : 0;
+-}
++/* Stash R_PPC64_RELATIVE reloc at input section SEC, r_offset OFF to
++   the array of such relocs.  */
+ 
+ static bool
+-append_relr_off (struct ppc_link_hash_table *htab, bfd_vma off)
++append_relr_off (struct ppc_link_hash_table *htab, asection *sec, bfd_vma off)
+ {
+   if (htab->relr_count >= htab->relr_alloc)
+     {
+@@ -13436,15 +13483,50 @@
+ 	htab->relr_alloc = 4096;
+       else
+ 	htab->relr_alloc *= 2;
+-      htab->relr_addr
+-	= bfd_realloc (htab->relr_addr,
+-		       htab->relr_alloc * sizeof (htab->relr_addr[0]));
+-      if (htab->relr_addr == NULL)
++      htab->relr = bfd_realloc (htab->relr,
++				htab->relr_alloc * sizeof (*htab->relr));
++      if (htab->relr == NULL)
+ 	return false;
+     }
+-  htab->relr_addr[htab->relr_count++] = off;
++  htab->relr[htab->relr_count].sec = sec;
++  htab->relr[htab->relr_count].off = off;
++  htab->relr_count++;
+   return true;
+ }
++
++/* qsort comparator for bfd_vma args.  */
++
++static int
++compare_relr_address (const void *arg1, const void *arg2)
++{
++  bfd_vma a = *(bfd_vma *) arg1;
++  bfd_vma b = *(bfd_vma *) arg2;
++  return a < b ? -1 : a > b ? 1 : 0;
++}
++
++/* Produce a malloc'd sorted array of reloc addresses from the info
++   stored by append_relr_off.  */
++
++static bfd_vma *
++sort_relr (struct ppc_link_hash_table *htab)
++{
++  bfd_vma *addr = bfd_malloc (htab->relr_count * sizeof (*addr));
++  if (addr == NULL)
++    return NULL;
++
++  for (size_t i = 0; i < htab->relr_count; i++)
++    addr[i] = (htab->relr[i].sec->output_section->vma
++	       + htab->relr[i].sec->output_offset
++	       + htab->relr[i].off);
++
++  if (htab->relr_count > 1)
++    qsort (addr, htab->relr_count, sizeof (*addr), compare_relr_address);
++
++  return addr;
++}
++
++/* Look over GOT and PLT entries saved on elf_local_got_ents for all
++   input files, stashing info about needed relative relocs.  */
+ 
+ static bool
+ got_and_plt_relr_for_local_syms (struct bfd_link_info *info)
+@@ -13493,10 +13575,7 @@
+ 	      && isym->st_shndx != SHN_ABS)
+ 	    {
+ 	      asection *got = ppc64_elf_tdata (gent->owner)->got;
+-	      bfd_vma r_offset = (got->output_section->vma
+-				  + got->output_offset
+-				  + gent->got.offset);
+-	      if (!append_relr_off (htab, r_offset))
++	      if (!append_relr_off (htab, got, gent->got.offset))
+ 		{
+ 		  htab->stub_error = true;
+ 		  return false;
+@@ -13511,10 +13590,7 @@
+ 	    if (pent->plt.offset != (bfd_vma) -1
+ 		&& ELF_ST_TYPE (isym->st_info) != STT_GNU_IFUNC)
+ 	      {
+-		bfd_vma r_offset = (pent->plt.offset
+-				    + htab->pltlocal->output_offset
+-				    + htab->pltlocal->output_section->vma);
+-		if (!append_relr_off (htab, r_offset))
++		if (!append_relr_off (htab, htab->pltlocal, pent->plt.offset))
+ 		  {
+ 		    if (symtab_hdr->contents != (unsigned char *) local_syms)
+ 		      free (local_syms);
+@@ -13533,6 +13609,9 @@
+     }
+   return true;
+ }
++
++/* Stash info about needed GOT and PLT entry relative relocs for
++   global symbol H.  */
+ 
+ static bool
+ got_and_plt_relr (struct elf_link_hash_entry *h, void *inf)
+@@ -13565,10 +13644,7 @@
+ 	      && gent->got.offset != (bfd_vma) -1)
+ 	    {
+ 	      asection *got = ppc64_elf_tdata (gent->owner)->got;
+-	      bfd_vma r_offset = (got->output_section->vma
+-				  + got->output_offset
+-				  + gent->got.offset);
+-	      if (!append_relr_off (htab, r_offset))
++	      if (!append_relr_off (htab, got, gent->got.offset))
+ 		{
+ 		  htab->stub_error = true;
+ 		  return false;
+@@ -13580,10 +13656,7 @@
+ 	for (pent = h->plt.plist; pent != NULL; pent = pent->next)
+ 	  if (pent->plt.offset != (bfd_vma) -1)
+ 	    {
+-	      bfd_vma r_offset = (htab->pltlocal->output_section->vma
+-				  + htab->pltlocal->output_offset
+-				  + pent->plt.offset);
+-	      if (!append_relr_off (htab, r_offset))
++	      if (!append_relr_off (htab, htab->pltlocal, pent->plt.offset))
+ 		{
+ 		  htab->stub_error = true;
+ 		  return false;
+@@ -13861,9 +13934,7 @@
+ 							  irela->r_offset);
+ 		      if (r_offset >= (bfd_vma) -2)
+ 			continue;
+-		      r_offset += (section->output_section->vma
+-				   + section->output_offset);
+-		      if (!append_relr_off (htab, r_offset))
++		      if (!append_relr_off (htab, section, r_offset))
+ 			goto error_ret_free_internal;
+ 		      continue;
+ 		    }
+@@ -14168,6 +14239,7 @@
+ 	}
+ 
+       htab->stub_changed = false;
++      htab->stub_id = 0;
+       bfd_hash_traverse (&htab->stub_hash_table, ppc_size_one_stub, info);
+ 
+       for (group = htab->group; group != NULL; group = group->next)
+@@ -14214,9 +14286,7 @@
+ 	  bfd_vma r_offset;
+ 
+ 	  for (r_offset = 0; r_offset < htab->brlt->size; r_offset += 8)
+-	    if (!append_relr_off (htab, (r_offset
+-					 + htab->brlt->output_section->vma
+-					 + htab->brlt->output_offset)))
++	    if (!append_relr_off (htab, htab->brlt, r_offset))
+ 	      return false;
+ 
+ 	  if (!got_and_plt_relr_for_local_syms (info))
+@@ -14225,28 +14295,28 @@
+ 	  if (htab->stub_error)
+ 	    return false;
+ 
+-	  if (htab->relr_count > 1)
+-	    qsort (htab->relr_addr, htab->relr_count, sizeof (*htab->relr_addr),
+-		   compare_relr_address);
++	  bfd_vma *relr_addr = sort_relr (htab);
++	  if (htab->relr_count != 0 && relr_addr == NULL)
++	    return false;
+ 
+ 	  size_t i = 0;
+ 	  while (i < htab->relr_count)
+ 	    {
+-	      bfd_vma base = htab->relr_addr[i];
++	      bfd_vma base = relr_addr[i];
+ 	      htab->elf.srelrdyn->size += 8;
+ 	      i++;
+ 	      /* Handle possible duplicate address.  This can happen
+ 		 as sections increase in size when adding stubs.  */
+ 	      while (i < htab->relr_count
+-		     && htab->relr_addr[i] == base)
++		     && relr_addr[i] == base)
+ 		i++;
+ 	      base += 8;
+ 	      while (1)
+ 		{
+ 		  size_t start_i = i;
+ 		  while (i < htab->relr_count
+-			 && htab->relr_addr[i] - base < 63 * 8
+-			 && (htab->relr_addr[i] - base) % 8 == 0)
++			 && relr_addr[i] - base < 63 * 8
++			 && (relr_addr[i] - base) % 8 == 0)
+ 		    i++;
+ 		  if (i == start_i)
+ 		    break;
+@@ -14254,6 +14324,7 @@
+ 		  base += 63 * 8;
+ 		}
+ 	    }
++	  free (relr_addr);
+ 	}
+ 
+       for (group = htab->group; group != NULL; group = group->next)
+@@ -15104,6 +15175,7 @@
+     }
+ 
+   /* Build the stubs as directed by the stub hash table.  */
++  htab->stub_id = 0;
+   bfd_hash_traverse (&htab->stub_hash_table, ppc_build_one_stub, info);
+ 
+   for (group = htab->group; group != NULL; group = group->next)
+@@ -15193,17 +15265,21 @@
+       if (htab->elf.srelrdyn->contents == NULL)
+ 	return false;
+ 
++      bfd_vma *relr_addr = sort_relr (htab);
++      if (htab->relr_count != 0 && relr_addr == NULL)
++	return false;
++
+       size_t i = 0;
+       bfd_byte *loc = htab->elf.srelrdyn->contents;
+       while (i < htab->relr_count)
+ 	{
+-	  bfd_vma base = htab->relr_addr[i];
++	  bfd_vma base = relr_addr[i];
+ 	  BFD_ASSERT (base % 2 == 0);
+ 	  bfd_put_64 (htab->elf.dynobj, base, loc);
+ 	  loc += 8;
+ 	  i++;
+ 	  while (i < htab->relr_count
+-		 && htab->relr_addr[i] == base)
++		 && relr_addr[i] == base)
+ 	    {
+ 	      htab->stub_error = true;
+ 	      i++;
+@@ -15213,10 +15289,10 @@
+ 	    {
+ 	      bfd_vma bits = 0;
+ 	      while (i < htab->relr_count
+-		     && htab->relr_addr[i] - base < 63 * 8
+-		     && (htab->relr_addr[i] - base) % 8 == 0)
++		     && relr_addr[i] - base < 63 * 8
++		     && (relr_addr[i] - base) % 8 == 0)
+ 		{
+-		  bits |= (bfd_vma) 1 << ((htab->relr_addr[i] - base) / 8);
++		  bits |= (bfd_vma) 1 << ((relr_addr[i] - base) / 8);
+ 		  i++;
+ 		}
+ 	      if (bits == 0)
+@@ -15226,6 +15302,7 @@
+ 	      base += 63 * 8;
+ 	    }
+ 	}
++      free (relr_addr);
+       /* Pad any excess with 1's, a do-nothing encoding.  */
+       while ((size_t) (loc - htab->elf.srelrdyn->contents)
+ 	     < htab->elf.srelrdyn->size)
+@@ -17090,6 +17167,15 @@
+ 	    relocation += htab->sec_info[sec->id].toc_off;
+ 	  else
+ 	    unresolved_reloc = true;
++	  if (unresolved_reloc
++	      || (!is_opd
++		  && h != NULL
++		  && !SYMBOL_REFERENCES_LOCAL (info, &h->elf)))
++	    info->callbacks->einfo
++	      /* xgettext:c-format */
++	      (_("%H: %s against %pT is not supported\n"),
++	       input_bfd, input_section, rel->r_offset,
++	       ppc64_elf_howto_table[r_type]->name, sym_name);
+ 	  goto dodyn;
+ 
+ 	  /* TOC16 relocs.  We want the offset relative to the TOC base,

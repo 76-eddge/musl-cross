@@ -52,6 +52,7 @@ ARG LINUX_VER=headers-4.19.88-1
 RUN make -C musl-cross-make \
 	COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" CFLAGS="-g0 -O3" CXXFLAGS="-g0 -O3" LDFLAGS="-s" --disable-shared --enable-static' \
 	GCC_CONFIG='--enable-default-pie --with-pic' \
+	BINUTILS_CONFIG='--enable-gold' \
 	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE"' \
 	TARGET=${TARGET} \
 	GCC_VER=${GCC_VER} \
