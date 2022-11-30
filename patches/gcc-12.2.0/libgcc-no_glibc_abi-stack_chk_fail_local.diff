@@ -10,3 +10,18 @@
  
  # Additional options to use when compiling libgcc2.a.
  # Some targets override this to -isystem include
+--- a/libgcc/libgcc2.c
++++ b/libgcc/libgcc2.c
+@@ -35,6 +35,12 @@
+ #define ATTRIBUTE_HIDDEN
+ #endif
+ 
++#ifdef HAVE_GAS_HIDDEN
++extern void __stack_chk_fail(void);
++
++__attribute__((__weak__, __visibility__("hidden"))) void __stack_chk_fail_local(void) { __stack_chk_fail(); }
++#endif
++
+ /* Work out the largest "word" size that we can deal with on this target.  */
+ #if MIN_UNITS_PER_WORD > 4
+ # define LIBGCC2_MAX_UNITS_PER_WORD 8
