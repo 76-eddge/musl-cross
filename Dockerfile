@@ -10,7 +10,9 @@ RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	ln -s gcc-11.2.0 musl-cross-make/patches/gcc-11.3.0 && \
 	ln -s musl musl-cross-make/patches/musl-$(sed -nre 's/^MUSL_VER\s*=\s*([0-9.]+)\s*$/\1/p' musl-cross-make/Makefile)
 
-COPY . musl-cross-make/
+COPY --link hashes musl-cross-make/hashes/
+COPY --link patches musl-cross-make/patches/
+COPY --link sources musl-cross-make/sources/
 
 
 # Build the toolchain
@@ -98,6 +100,13 @@ RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_
 	mv libuuid.la .libs/libuuid.a ../musl-cross-make/output/${TARGET}/lib/ && \
 	cd .. && \
 	rm -rf util-linux-*
+
+# Build libcompat_time64 on 32-bit architectures
+COPY --link src /musl-cross-src/
+RUN if [[ " arm armeb i386 i686 mips mipsel powerpc " =~ " ${TARGET%%-*} " ]]; then \
+		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -Os -nostdlib -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgcc && \
+		/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so; \
+	fi
 
 
 # Copy toolchain into scratch image

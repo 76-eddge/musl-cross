@@ -2,6 +2,7 @@
 *
 
 # Only include the files we want
-!patches/
 !hashes/
+!patches/
 !sources/
+!src/
