@@ -75,9 +75,19 @@ RUN make -C musl-cross-make \
 	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libutil.so.1 && \
 	make -C musl-cross-make clean
 
-# Install patchelf
-ARG PATCHELF_GZ_URI=https://github.com/NixOS/patchelf/releases/download/0.16.1/patchelf-0.16.1-x86_64.tar.gz
-RUN (cat musl-cross-make/sources/patchelf-*.tar.gz || wget -O - "$PATCHELF_GZ_URI") | tar xz -C musl-cross-make/output ./bin/patchelf
+# Build patchelf
+ARG PATCHELF_BZ2_URI=https://github.com/NixOS/patchelf/releases/download/0.17.0/patchelf-0.17.0.tar.bz2
+RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_URI") | tar xj && cp -a patchelf-* cross-patchelf && cd patchelf-* && \
+	./configure CFLAGS="-static -Os" CXXFLAGS="-static -Os" && \
+	make && \
+	make check CFLAGS= CXXFLAGS= && \
+	mv src/patchelf ../musl-cross-make/output/bin/ && \
+	cd ../cross-patchelf && \
+	./configure CC=/musl-cross-make/output/bin/${TARGET}-gcc CXX=/musl-cross-make/output/bin/${TARGET}-g++ CFLAGS="-static -Os" CXXFLAGS="-static -Os" && \
+	make && \
+	mkdir -p ../musl-cross-make/output/bin-native && \
+	mv src/patchelf ../musl-cross-make/output/bin-native/ && \
+	cd .. && rm -rf patchelf-* cross-patchelf
 
 # Build libuuid
 ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.38.1.tar.gz
