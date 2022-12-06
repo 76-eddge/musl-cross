@@ -83,7 +83,7 @@ RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_
 	make check CFLAGS= CXXFLAGS= && \
 	mv src/patchelf ../musl-cross-make/output/bin/ && \
 	cd ../cross-patchelf && \
-	./configure CC=/musl-cross-make/output/bin/${TARGET}-gcc CXX=/musl-cross-make/output/bin/${TARGET}-g++ CFLAGS="-static -Os" CXXFLAGS="-static -Os" && \
+	./configure --host=${TARGET/-musl/-gnu} CC=/musl-cross-make/output/bin/${TARGET}-gcc CXX=/musl-cross-make/output/bin/${TARGET}-g++ CFLAGS="-static -Os" CXXFLAGS="-static -Os" && \
 	make && \
 	mkdir -p ../musl-cross-make/output/bin-native && \
 	mv src/patchelf ../musl-cross-make/output/bin-native/ && \
