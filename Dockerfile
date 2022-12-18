@@ -82,11 +82,13 @@ ARG PATCHELF_BZ2_URI=https://github.com/NixOS/patchelf/releases/download/0.17.0/
 RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_URI") | tar xj && cp -a patchelf-* cross-patchelf && cd patchelf-* && \
 	./configure CFLAGS="-static -Os" CXXFLAGS="-static -Os" && \
 	make && \
+	strip src/patchelf && \
 	make check CFLAGS= CXXFLAGS= && \
 	mv src/patchelf ../musl-cross-make/output/bin/ && \
 	cd ../cross-patchelf && \
 	./configure --host=${TARGET/-musl/-gnu} CC=/musl-cross-make/output/bin/${TARGET}-gcc CXX=/musl-cross-make/output/bin/${TARGET}-g++ CFLAGS="-static -Os" CXXFLAGS="-static -Os" && \
 	make && \
+	/musl-cross-make/output/bin/${TARGET}-strip src/patchelf && \
 	mkdir -p ../musl-cross-make/output/bin-native && \
 	mv src/patchelf ../musl-cross-make/output/bin-native/ && \
 	cd .. && rm -rf patchelf-* cross-patchelf
