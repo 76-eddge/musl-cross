@@ -164,6 +164,19 @@
  char *getenv (const char *);
  
  int system (const char *);
+--- a/include/string.h
++++ b/include/string.h
+@@ -82,8 +82,10 @@
+ 
+ #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
+ char *strsep(char **, const char *);
++#if defined(NO_GLIBC_ABI_COMPATIBLE)
+ size_t strlcat (char *, const char *, size_t);
+ size_t strlcpy (char *, const char *, size_t);
++#endif
+ void explicit_bzero (void *, size_t);
+ #endif
+ 
 --- a/include/unistd.h
 +++ b/include/unistd.h
 @@ -181,6 +181,44 @@
