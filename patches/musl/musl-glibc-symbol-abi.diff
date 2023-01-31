@@ -1,3 +1,16 @@
+--- a/include/sys/mman.h
++++ b/include/sys/mman.h
+@@ -146,6 +146,10 @@
+ #define off64_t off_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(mmap, mmap64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/include/sys/random.h
 +++ b/include/sys/random.h
 @@ -14,6 +14,19 @@
@@ -20,25 +33,48 @@
  #ifdef __cplusplus
  }
  #endif
+--- a/include/sys/resource.h
++++ b/include/sys/resource.h
+@@ -107,6 +107,13 @@
+ 
+ #if _REDIR_TIME64
+ __REDIR(getrusage, __getrusage_time64);
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__REDIR(getrlimit, getrlimit64);
++__REDIR(setrlimit, setrlimit64);
++#ifdef _GNU_SOURCE
++__REDIR(prlimit, prlimit64);
++#endif
++#endif
+ #endif
+ 
+ #ifdef __cplusplus
+--- a/include/sys/sendfile.h
++++ b/include/sys/sendfile.h
+@@ -15,6 +15,10 @@
+ #define off64_t off_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(sendfile, sendfile64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/include/sys/stat.h
 +++ b/include/sys/stat.h
-@@ -74,6 +74,53 @@
+@@ -74,6 +74,45 @@
  int fstat(int, struct stat *);
  int lstat(const char *__restrict, struct stat *__restrict);
  int fstatat(int, const char *__restrict, struct stat *__restrict, int);
 +
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && !_REDIR_TIME64
 +
-+#if _REDIR_TIME64
-+#define GLIBC_STAT_FN(X) X ## 64
-+#else
-+#define GLIBC_STAT_FN(X) X
-+#endif
-+
-+int GLIBC_STAT_FN(__xstat)(int, const char *__restrict, struct stat *__restrict);
-+int GLIBC_STAT_FN(__fxstat)(int, int, struct stat *);
-+int GLIBC_STAT_FN(__lxstat)(int, const char *__restrict, struct stat *__restrict);
-+int GLIBC_STAT_FN(__fxstatat)(int, int, const char *__restrict, struct stat *__restrict, int);
++int __xstat(int, const char *__restrict, struct stat *__restrict);
++int __fxstat(int, int, struct stat *);
++int __lxstat(int, const char *__restrict, struct stat *__restrict);
++int __fxstatat(int, int, const char *__restrict, struct stat *__restrict, int);
 +
 +// See glibc xstatver.h
 +#if defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
@@ -51,32 +87,30 @@
 +
 +__attribute__((__weak__)) int stat(const char *__restrict path, struct stat *__restrict buf)
 +{
-+	return GLIBC_STAT_FN(__xstat)(GLIBC_ABI_XSTAT_VERSION, path, buf);
++	return __xstat(GLIBC_ABI_XSTAT_VERSION, path, buf);
 +}
 +
 +__attribute__((__weak__)) int fstat(int fd, struct stat *buf)
 +{
-+	return GLIBC_STAT_FN(__fxstat)(GLIBC_ABI_XSTAT_VERSION, fd, buf);
++	return __fxstat(GLIBC_ABI_XSTAT_VERSION, fd, buf);
 +}
 +
 +__attribute__((__weak__)) int lstat(const char *__restrict path, struct stat *__restrict buf)
 +{
-+	return GLIBC_STAT_FN(__lxstat)(GLIBC_ABI_XSTAT_VERSION, path, buf);
++	return __lxstat(GLIBC_ABI_XSTAT_VERSION, path, buf);
 +}
 +
 +__attribute__((__weak__)) int fstatat(int fd, const char *__restrict path, struct stat *__restrict buf, int flag)
 +{
-+	return GLIBC_STAT_FN(__fxstatat)(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag);
++	return __fxstatat(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag);
 +}
-+
-+#undef GLIBC_STAT_FN
 +
 +#endif
 +
  int chmod(const char *, mode_t);
  int fchmod(int, mode_t);
  int fchmodat(int, const char *, mode_t, int);
-@@ -86,6 +133,30 @@
+@@ -86,6 +125,30 @@
  #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
  int mknod(const char *, mode_t, dev_t);
  int mknodat(int, const char *, mode_t, dev_t);
@@ -107,6 +141,141 @@
  #endif
  
  int futimens(int, const struct timespec [2]);
+--- a/include/sys/statfs.h
++++ b/include/sys/statfs.h
+@@ -25,6 +25,11 @@
+ #define fsfilcnt64_t fsfilcnt_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(statfs, statfs64);
++__REDIR(fstatfs, fstatfs64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/include/sys/statvfs.h
++++ b/include/sys/statvfs.h
+@@ -49,6 +49,11 @@
+ #define fsfilcnt64_t fsfilcnt_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(statvfs, statvfs64);
++__REDIR(fstatvfs, fstatvfs64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/include/sys/uio.h
++++ b/include/sys/uio.h
+@@ -34,6 +34,11 @@
+ #define pwritev64 pwritev
+ #define off64_t off_t
+ #endif
++
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(preadv, preadv64);
++__REDIR(pwritev, pwritev64);
++#endif
+ #endif
+ 
+ #ifdef _GNU_SOURCE
+--- a/include/aio.h
++++ b/include/aio.h
+@@ -64,6 +64,15 @@
+ 
+ #if _REDIR_TIME64
+ __REDIR(aio_suspend, __aio_suspend_time64);
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__REDIR(aio_read, aio_read64);
++__REDIR(aio_write, aio_write64);
++__REDIR(aio_error, aio_error64);
++__REDIR(aio_return, aio_return64);
++__REDIR(aio_cancel, aio_cancel64);
++__REDIR(aio_fsync, aio_fsync64);
++__REDIR(lio_listio, lio_listio64);
++#endif
+ #endif
+ 
+ #ifdef __cplusplus
+--- a/include/dirent.h
++++ b/include/dirent.h
+@@ -68,6 +68,20 @@
+ #define getdents64 getdents
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(readdir, readdir64);
++__REDIR(readdir_r, readdir64_r);
++__REDIR(scandir, scandir64);
++__REDIR(alphasort, alphasort64);
++#ifdef _GNU_SOURCE
++__REDIR(versionsort, versionsort64);
++#endif
++#endif
++
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && (defined(_GNU_SOURCE) || defined(_BSD_SOURCE))
++__REDIR(getdents, getdents64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/include/fcntl.h
++++ b/include/fcntl.h
+@@ -209,6 +209,21 @@
+ #define off64_t off_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(open, open64);
++__REDIR(openat, openat64);
++__REDIR(creat, creat64);
++#if !defined(__REDIR_LOCKF) && (defined(_GNU_SOURCE) || defined(_BSD_SOURCE))
++#define __REDIR_LOCKF
++__REDIR(lockf, lockf64);
++#endif
++__REDIR(posix_fadvise, posix_fadvise64);
++__REDIR(posix_fallocate, posix_fallocate64);
++#if defined(_GNU_SOURCE)
++__REDIR(fallocate, fallocate64);
++#endif
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/include/ftw.h
++++ b/include/ftw.h
+@@ -34,6 +34,11 @@
+ #define nftw64 nftw
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(ftw, ftw64);
++__REDIR(nftw, nftw64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/include/glob.h
++++ b/include/glob.h
+@@ -45,6 +45,11 @@
+ #define glob64_t glob_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(glob, glob64);
++__REDIR(globfree, globfree64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/include/pthread.h
 +++ b/include/pthread.h
 @@ -198,6 +198,22 @@
@@ -132,6 +301,25 @@
  int pthread_getconcurrency(void);
  int pthread_setconcurrency(int);
  
+--- a/include/stdio.h
++++ b/include/stdio.h
+@@ -217,6 +217,16 @@
+ #define off64_t off_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(tmpfile, tmpfile64);
++__REDIR(fopen, fopen64);
++__REDIR(freopen, freopen64);
++__REDIR(fseeko, fseeko64);
++__REDIR(ftello, ftello64);
++__REDIR(fgetpos, fgetpos64);
++__REDIR(fsetpos, fsetpos64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/include/stdlib.h
 +++ b/include/stdlib.h
 @@ -50,6 +50,29 @@
@@ -164,6 +352,22 @@
  char *getenv (const char *);
  
  int system (const char *);
+@@ -172,6 +196,15 @@
+ #endif
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(mkstemp, mkstemp64);
++__REDIR(mkostemp, mkostemp64);
++#if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
++__REDIR(mkstemps, mkstemps64);
++__REDIR(mkostemps, mkostemps64);
++#endif
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/include/string.h
 +++ b/include/string.h
 @@ -82,8 +82,10 @@
@@ -224,6 +428,25 @@
  extern int optreset;
  #endif
  
+@@ -206,6 +247,18 @@
+ #define ftruncate64 ftruncate
+ #define lockf64 lockf
+ #define off64_t off_t
++#endif
++
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(lseek, lseek64);
++__REDIR(pread, pread64);
++__REDIR(pwrite, pwrite64);
++__REDIR(truncate, truncate64);
++__REDIR(ftruncate, ftruncate64);
++#if !defined(__REDIR_LOCKF) && (defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE))
++#define __REDIR_LOCKF
++__REDIR(lockf, lockf64);
++#endif
+ #endif
+ 
+ #define POSIX_CLOSE_RESTART     0
 --- a/src/exit/at_quick_exit.c
 +++ b/src/exit/at_quick_exit.c
 @@ -31,3 +31,8 @@

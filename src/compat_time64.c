@@ -255,7 +255,7 @@ static inline void ConvertRUsage32To64(struct rusage *usage) {
 // 32-bit Time Functions
 int adjtime(const struct timeval32*, struct timeval32*);
 int adjtimex(struct timex32*);
-int aio_suspend(const struct aiocb *const[], int, const struct timespec32*);
+int aio_suspend64(const struct aiocb *const[], int, const struct timespec32*);
 int clock_adjtime(clockid_t, struct timex32*);
 int clock_getres(clockid_t, struct timespec32*);
 int clock_gettime(clockid_t, struct timespec32*);
@@ -351,10 +351,10 @@ POSSIBLY_UNDEFINED_ATTRIBUTE int __adjtimex_time64(struct timex *tx) {
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __aio_suspend_time64(const struct aiocb *const aiocb_list[], int nitems, const struct timespec *restrict timeout) {
 	if (!timeout)
-		return aio_suspend(aiocb_list, nitems, (const struct timespec32*)0);
+		return aio_suspend64(aiocb_list, nitems, (const struct timespec32*)0);
 
 	struct timespec32 ts32 = ConvertTimeSpec64To32(*timeout);
-	return aio_suspend(aiocb_list, nitems, &ts32);
+	return aio_suspend64(aiocb_list, nitems, &ts32);
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __clock_adjtime64(clockid_t clk_id, struct timex *buf) {
@@ -445,7 +445,7 @@ POSSIBLY_UNDEFINED_ATTRIBUTE void *__dlsym_time64(void *restrict handle, const c
 			return __adjtime64;
 		if (result == adjtimex)
 			return __adjtimex_time64;
-		if (result == aio_suspend)
+		if (result == aio_suspend64)
 			return __aio_suspend_time64;
 		if (result == clock_adjtime)
 			return __clock_adjtime64;
