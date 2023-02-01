@@ -40,7 +40,7 @@ jobs:
     - uses: docker/setup-buildx-action@v2
 
     - name: Build Toolchain
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v4
       with:
         build-args: TARGET=${{ matrix.target }}
         cache-from: type=gha,scope=${{ matrix.target }}
