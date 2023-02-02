@@ -276,6 +276,19 @@
  #ifdef __cplusplus
  }
  #endif
+--- a/include/libgen.h
++++ b/include/libgen.h
+@@ -8,6 +8,10 @@
+ char *dirname(char *);
+ char *basename(char *);
+ 
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__REDIR(basename, __xpg_basename);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/include/pthread.h
 +++ b/include/pthread.h
 @@ -198,6 +198,22 @@
