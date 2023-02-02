@@ -316,19 +316,6 @@ int __fxstatat64(int, int, const char*, struct stat*, int);
 int __lxstat64(int, const char*, struct stat*);
 int __xstat64(int, const char*, struct stat*);
 
-POSSIBLY_UNDEFINED_ATTRIBUTE int cnd_timedwait(cnd_t *cond, mtx_t *mutex, const struct timespec32 *time_point) {
-	(void)cond;
-	(void)mutex;
-	(void)time_point;
-	return thrd_error;
-}
-
-POSSIBLY_UNDEFINED_ATTRIBUTE int mtx_timedlock(mtx_t *mutex, const struct timespec32 *time_point) {
-	(void)mutex;
-	(void)time_point;
-	return thrd_error;
-}
-
 // Time Functions
 POSSIBLY_UNDEFINED_ATTRIBUTE int __adjtime64(const struct timeval *delta, struct timeval *olddelta) {
 	int result;
@@ -415,11 +402,13 @@ POSSIBLY_UNDEFINED_ATTRIBUTE int __clock_settime64(clockid_t clockid, const stru
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __cnd_timedwait_time64(cnd_t* restrict cond, mtx_t* restrict mutex, const struct timespec* restrict time_point) {
-	if (!time_point)
-		return cnd_timedwait(cond, mutex, (const struct timespec32*)0);
+	int result = __pthread_cond_timedwait_time64((pthread_cond_t*)cond, (pthread_mutex_t*)mutex, time_point);
 
-	struct timespec32 ts32 = ConvertTimeSpec64To32(*time_point);
-	return cnd_timedwait(cond, mutex, &ts32);
+	switch (result) {
+		case 0: return thrd_success;
+		case ETIMEDOUT: return thrd_timedout;
+		default: return thrd_error;
+	}
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE char *__ctime64(const time_t *tp) {
@@ -697,11 +686,13 @@ POSSIBLY_UNDEFINED_ATTRIBUTE int __mq_timedsend_time64(mqd_t mqdes, const char *
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __mtx_timedlock_time64(mtx_t *restrict mutex, const struct timespec *restrict time_point) {
-	if (!time_point)
-		return mtx_timedlock(mutex, (const struct timespec32*)0);
+	int result = __pthread_mutex_timedlock_time64((pthread_mutex_t*)mutex, time_point);
 
-	struct timespec32 ts32 = ConvertTimeSpec64To32(*time_point);
-	return mtx_timedlock(mutex, &ts32);
+	switch (result) {
+		case 0: return thrd_success;
+		case ETIMEDOUT: return thrd_timedout;
+		default: return thrd_error;
+	}
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __nanosleep_time64(const struct timespec *req, struct timespec *rem) {
