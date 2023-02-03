@@ -314,6 +314,14 @@
  int pthread_getconcurrency(void);
  int pthread_setconcurrency(int);
  
+@@ -207,6 +223,7 @@
+ 	void (*__f)(void *);
+ 	void *__x;
+ 	struct __ptcb *__next;
++	void *__unused;
+ };
+ 
+ void _pthread_cleanup_push(struct __ptcb *, void (*)(void *), void *);
 --- a/include/stdio.h
 +++ b/include/stdio.h
 @@ -217,6 +217,16 @@
