@@ -322,6 +322,18 @@
  };
  
  void _pthread_cleanup_push(struct __ptcb *, void (*)(void *), void *);
+--- a/include/setjmp.h
++++ b/include/setjmp.h
+@@ -27,6 +27,9 @@
+ typedef jmp_buf sigjmp_buf;
+ int sigsetjmp (sigjmp_buf, int) __setjmp_attr;
+ _Noreturn void siglongjmp (sigjmp_buf, int);
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__REDIR(sigsetjmp, __sigsetjmp);
++#endif
+ #endif
+ 
+ #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) \
 --- a/include/stdio.h
 +++ b/include/stdio.h
 @@ -217,6 +217,16 @@
