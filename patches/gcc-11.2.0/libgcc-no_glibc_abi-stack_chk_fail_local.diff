@@ -1,16 +1,3 @@
---- a/config/gnu-user.h
-+++ b/config/gnu-user.h
-@@ -110,8 +110,8 @@
- #endif
- 
- #define GNU_USER_TARGET_LINK_GCC_C_SEQUENCE_SPEC \
--  "%{static|static-pie:--start-group} %G %{!nolibc:%L} \
--   %{static|static-pie:--end-group}%{!static:%{!static-pie:%G}}"
-+  "--start-group %G %{!nolibc:%L} \
-+   --end-group"
- 
- #undef LINK_GCC_C_SEQUENCE_SPEC
- #define LINK_GCC_C_SEQUENCE_SPEC GNU_USER_TARGET_LINK_GCC_C_SEQUENCE_SPEC
 --- a/libgcc/Makefile.in
 +++ b/libgcc/Makefile.in
 @@ -247,7 +247,8 @@
