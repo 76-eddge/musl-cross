@@ -11,28 +11,6 @@
  #ifdef __cplusplus
  }
  #endif
---- a/include/sys/random.h
-+++ b/include/sys/random.h
-@@ -14,6 +14,19 @@
- 
- ssize_t getrandom(void *, size_t, unsigned);
- 
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+#include <sys/syscall.h>
-+
-+long syscall(long, ...);
-+
-+__attribute__((__weak__)) ssize_t getrandom(void *buf, size_t buflen, unsigned flags)
-+{
-+	return syscall(SYS_getrandom, buf, buflen, flags);
-+}
-+
-+#endif
-+
- #ifdef __cplusplus
- }
- #endif
 --- a/include/sys/resource.h
 +++ b/include/sys/resource.h
 @@ -107,6 +107,13 @@
@@ -223,6 +201,24 @@
 +
  #ifdef __cplusplus
  }
+ #endif
+--- a/include/dlfcn.h
++++ b/include/dlfcn.h
+@@ -35,6 +35,15 @@
+ int dlinfo(void *, int, void *);
+ #endif
+ 
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__attribute__((__weak__)) void *__dlopen_check(const char *file, int mode)
++{
++	return dlopen(file, mode);
++}
++
++#define dlopen(...) __dlopen_check(__VA_ARGS__)
++#endif
++
+ #if _REDIR_TIME64
+ __REDIR(dlsym, __dlsym_time64);
  #endif
 --- a/include/fcntl.h
 +++ b/include/fcntl.h
@@ -416,52 +412,7 @@
  
 --- a/include/unistd.h
 +++ b/include/unistd.h
-@@ -181,6 +181,44 @@
- int execvpe(const char *, char *const [], char *const []);
- int issetugid(void);
- int getentropy(void *, size_t);
-+
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+#include <errno.h>
-+#include <sys/syscall.h>
-+
-+int pthread_setcancelstate(int, int *);
-+
-+__attribute__((__weak__)) int getentropy(void *buffer, size_t len)
-+{
-+	int cs, ret = 0;
-+	char *pos = (char *)buffer;
-+
-+	if (len > 256) {
-+		errno = EIO;
-+		return -1;
-+	}
-+
-+	pthread_setcancelstate(1 /* PTHREAD_CANCEL_DISABLE */, &cs);
-+
-+	while (len) {
-+		ret = (int)syscall(SYS_getrandom, pos, len, 0);
-+		if (ret < 0) {
-+			if (errno == EINTR) continue;
-+			else break;
-+		}
-+		pos += ret;
-+		len -= ret;
-+		ret = 0;
-+	}
-+
-+	pthread_setcancelstate(cs, 0);
-+
-+	return ret;
-+}
-+
-+#endif
-+
- extern int optreset;
- #endif
- 
-@@ -206,6 +247,18 @@
+@@ -206,6 +206,18 @@
  #define ftruncate64 ftruncate
  #define lockf64 lockf
  #define off64_t off_t

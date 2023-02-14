@@ -54,7 +54,7 @@ jobs:
       run: |
         ls -l ${{ matrix.target }}.tar
         tar -xf ${{ matrix.target }}.tar
-        make SRC_DIR=test BIN_DIR=cc-bin CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2 -Wall' -f test/Makefile version tests
+        make SRC_DIR=test BIN_DIR=cc-bin CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2 -Wall' LIBS='-luuid -pthread -lsc' -f test/Makefile version tests
 
     - name: Test Toolchain - Run
       if: matrix.target == 'x86_64-linux-musl'

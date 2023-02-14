@@ -13,6 +13,8 @@ extern "C" {
 #define QUOTE(X) #X
 #define REQUIRE(X) do { bool REQUIRE_result_ = bool(X); if (!REQUIRE_result_) throw std::runtime_error("Assertion failed: " QUOTE(X) " at " QUOTE(__FILE__) ":" QUOTE(__LINE__)); } while (false)
 
+__attribute__((__weak__)) int getentropy(void*, size_t) { return 1; }
+
 namespace test {
 
 class LibC {

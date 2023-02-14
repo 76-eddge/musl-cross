@@ -35,14 +35,6 @@ ARG TARGET=x86_64-linux-musl
 ARG GCC_VER=12.2.0
 # 12.2.0
 # 11.3.0
-# 10.3.0
-# 9.4.0
-# 9.2.0
-# 8.5.0
-# 7.5.0
-# 6.5.0
-# 5.3.0
-# 4.2.1
 ARG BINUTILS_VER=2.38
 ARG GMP_VER=6.2.1
 ARG MPC_VER=1.2.1
@@ -66,6 +58,8 @@ RUN make -C musl-cross-make \
 	install && \
 	musl-cross-make/output/${TARGET}/bin/ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
 	musl-cross-make/output/${TARGET}/bin/ranlib musl-cross-make/output/${TARGET}/lib/libc_dl.a && \
+	musl-cross-make/output/${TARGET}/bin/objcopy -N dlopen -N dlclose -N dlsym -N dlerror -N dladdr -N dlinfo musl-cross-make/output/${TARGET}/lib/libc.a musl-cross-make/output/${TARGET}/lib/libsc.a && \
+	musl-cross-make/output/${TARGET}/bin/ar d musl-cross-make/output/${TARGET}/lib/libsc.a lite_malloc.lo free.lo __tls_get_addr.lo && \
 	ln -sf libc.so musl-cross-make/output/${TARGET}/lib/ld-* && \
 	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libc.so.6 && \
 	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libpthread.so.0 && \
