@@ -35,14 +35,6 @@ ARG TARGET=x86_64-linux-musl
 ARG GCC_VER=12.2.0
 # 12.2.0
 # 11.3.0
-# 10.3.0
-# 9.4.0
-# 9.2.0
-# 8.5.0
-# 7.5.0
-# 6.5.0
-# 5.3.0
-# 4.2.1
 ARG BINUTILS_VER=2.38
 ARG GMP_VER=6.2.1
 ARG MPC_VER=1.2.1
@@ -103,12 +95,18 @@ RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_
 	cd .. && \
 	rm -rf util-linux-*
 
-# Build libcompat_time64 on 32-bit architectures
+# Build libcompat_* libraries (time64 only on 32-bit architectures)
 COPY --link src /musl-cross-src/
 RUN if [[ " arm armeb i386 i686 mips mipsel powerpc " =~ " ${TARGET%%-*} " ]]; then \
 		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -nostdlib -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgcc && \
 		/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so; \
-	fi
+	fi;
+
+# Build patchar
+RUN g++ -static -Os -Wall -o /musl-cross-make/output/bin/patchar /musl-cross-src/patchar.cxx && \
+	strip /musl-cross-make/output/bin/patchar && \
+	/musl-cross-make/output/bin/${TARGET}-g++ -static -Os -Wall -o /musl-cross-make/output/bin-native/patchar /musl-cross-src/patchar.cxx && \
+	/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/bin-native/patchar
 
 
 # Copy toolchain into scratch image

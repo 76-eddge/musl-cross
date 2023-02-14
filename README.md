@@ -52,15 +52,31 @@ The toolchains are built using the [musl-cross-make](https://github.com/richfelk
 - All standard system libraries are compiled using the `-fPIC` option to support linking the static version of these libraries into shared libraries.
 - Only libc is built as both a static library and shared library.
   All other standard system libraries are built as static libraries only.
-- A patch to support the older glibc ABI, where `*stat` functionality was exposed through the `__*xstat` functions and `mknod*` functionality was exposed through the `__xmknod*` functions.
-  The patch also supports the `atexit`, `at_quick_exit`, `getrandom`, `getentropy`, and `pthread_atfork` functions as well.
-  (The patch is compatible with the current ABI.)
-- The `patchelf` utility is included.
+- The C library is modified to support the older glibc ABI, where `*stat` functionality was exposed through the `__*xstat` functions and `mknod*` functionality was exposed through the `__xmknod*` functions.
+  The library also supports the `atexit`, `at_quick_exit`, and `pthread_atfork` functions as well.
+  (It is also compatible with the current ABI.)
+- A glibc-compatible time64 library is provided to support the time64 glibc ABI on systems where 64-bit time has not been implemented.
+- The `patchelf` and `patchar` utilities are included.
 
 ### Can I use the toolchains to create static executables?
 
 Yes, the toolchains can be used with the `-static` option.
 None of the modifications to the toolchains should affect creating static executables.
+
+### What is patchar?
+
+The `patchar` utility is used to patch archive libraries.
+It analyzes the symbol dependencies in an archive and copies certain symbols to an output archive.
+Symbols can be removed using the `-defined` and `-exclude` options.
+(The `-exclude` option also removes any dependants of a symbol.)
+Note that library link order is important when modifying system libraries.
+
+For example, to export only the `getrandom()` and `getentropy()` functions from `libc.a`:
+
+```sh
+bin/patchar x86_64-linux-musl/lib/libc.a libsc.a -nm bin/x86_64-linux-musl-nm -objcopy bin/x86_64-linux-musl-objcopy -defined '.*,-getentropy,-getrandom,-__syscall_.*' -info
+bin/x86_64-linux-musl-g++ -shared -fPIC -O2 -Wall -o test.so testSo.cxx -pthread -lstdc++ -L. -lsc
+```
 
 ### What version of GCC is used?
 

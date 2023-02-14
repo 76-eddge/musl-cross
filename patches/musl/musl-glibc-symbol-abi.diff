@@ -11,28 +11,6 @@
  #ifdef __cplusplus
  }
  #endif
---- a/include/sys/random.h
-+++ b/include/sys/random.h
-@@ -14,6 +14,19 @@
- 
- ssize_t getrandom(void *, size_t, unsigned);
- 
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+#include <sys/syscall.h>
-+
-+long syscall(long, ...);
-+
-+__attribute__((__weak__)) ssize_t getrandom(void *buf, size_t buflen, unsigned flags)
-+{
-+	return syscall(SYS_getrandom, buf, buflen, flags);
-+}
-+
-+#endif
-+
- #ifdef __cplusplus
- }
- #endif
 --- a/include/sys/resource.h
 +++ b/include/sys/resource.h
 @@ -107,6 +107,13 @@
@@ -70,11 +48,10 @@
  int fstatat(int, const char *__restrict, struct stat *__restrict, int);
 +
 +#if !defined(NO_GLIBC_ABI_COMPATIBLE) && !_REDIR_TIME64
-+
-+int __xstat(int, const char *__restrict, struct stat *__restrict);
-+int __fxstat(int, int, struct stat *);
-+int __lxstat(int, const char *__restrict, struct stat *__restrict);
-+int __fxstatat(int, int, const char *__restrict, struct stat *__restrict, int);
++int __xstat64(int, const char *__restrict, struct stat *__restrict);
++int __fxstat64(int, int, struct stat *);
++int __lxstat64(int, const char *__restrict, struct stat *__restrict);
++int __fxstatat64(int, int, const char *__restrict, struct stat *__restrict, int);
 +
 +// See glibc xstatver.h
 +#if defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
@@ -87,24 +64,25 @@
 +
 +__attribute__((__weak__)) int stat(const char *__restrict path, struct stat *__restrict buf)
 +{
-+	return __xstat(GLIBC_ABI_XSTAT_VERSION, path, buf);
++	return __xstat64(GLIBC_ABI_XSTAT_VERSION, path, buf);
 +}
 +
 +__attribute__((__weak__)) int fstat(int fd, struct stat *buf)
 +{
-+	return __fxstat(GLIBC_ABI_XSTAT_VERSION, fd, buf);
++	return __fxstat64(GLIBC_ABI_XSTAT_VERSION, fd, buf);
 +}
 +
 +__attribute__((__weak__)) int lstat(const char *__restrict path, struct stat *__restrict buf)
 +{
-+	return __lxstat(GLIBC_ABI_XSTAT_VERSION, path, buf);
++	return __lxstat64(GLIBC_ABI_XSTAT_VERSION, path, buf);
 +}
 +
 +__attribute__((__weak__)) int fstatat(int fd, const char *__restrict path, struct stat *__restrict buf, int flag)
 +{
-+	return __fxstatat(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag);
++	return __fxstatat64(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag);
 +}
 +
++#undef GLIBC_ABI_XSTAT_VERSION
 +#endif
 +
  int chmod(const char *, mode_t);
@@ -116,7 +94,6 @@
  int mknodat(int, const char *, mode_t, dev_t);
 +
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
 +int __xmknod(int, const char *, mode_t, dev_t*);
 +int __xmknodat(int, int, const char *, mode_t, dev_t*);
 +
@@ -137,6 +114,7 @@
 +	return __xmknodat(GLIBC_ABI_XMKNOD_VERSION, fd, path, mode, &dev);
 +}
 +
++#undef GLIBC_ABI_XMKNOD_VERSION
 +#endif
  #endif
  
@@ -291,13 +269,12 @@
  #endif
 --- a/include/pthread.h
 +++ b/include/pthread.h
-@@ -198,6 +198,22 @@
+@@ -198,6 +198,20 @@
  
  int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
  
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+extern void *__dso_handle __attribute__((__visibility__("hidden")));
++extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
 +
 +__attribute__((__weak__)) int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *)
 +{
@@ -306,15 +283,14 @@
 +
 +__attribute__((__weak__)) int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 +{
-+	return __register_atfork(prepare, parent, child, __dso_handle);
++	return __register_atfork(prepare, parent, child, &__dso_handle ? __dso_handle : 0);
 +}
-+
 +#endif
 +
  int pthread_getconcurrency(void);
  int pthread_setconcurrency(int);
  
-@@ -207,6 +223,7 @@
+@@ -207,6 +221,7 @@
  	void (*__f)(void *);
  	void *__x;
  	struct __ptcb *__next;
@@ -355,13 +331,12 @@
  #endif
 --- a/include/stdlib.h
 +++ b/include/stdlib.h
-@@ -50,6 +50,29 @@
+@@ -50,6 +50,27 @@
  int at_quick_exit (void (*) (void));
  _Noreturn void quick_exit (int);
  
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+extern void *__dso_handle __attribute__((__visibility__("hidden")));
++extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
 +
 +int __cxa_atexit(void (*)(void *), void *, void *);
 +
@@ -372,20 +347,19 @@
 +
 +__attribute__((__weak__)) int atexit(void (*func)(void))
 +{
-+	return __cxa_atexit((void (*)(void *))func, 0, __dso_handle);
++	return __cxa_atexit((void (*)(void *))func, 0, &__dso_handle ? __dso_handle : 0);
 +}
 +
 +__attribute__((__weak__)) int at_quick_exit(void (*func)(void))
 +{
-+	return __cxa_at_quick_exit((void (*)(void *))func, __dso_handle);
++	return __cxa_at_quick_exit((void (*)(void *))func, &__dso_handle ? __dso_handle : 0);
 +}
-+
 +#endif
 +
  char *getenv (const char *);
  
  int system (const char *);
-@@ -172,6 +196,15 @@
+@@ -172,6 +193,15 @@
  #endif
  #endif
  
@@ -416,52 +390,7 @@
  
 --- a/include/unistd.h
 +++ b/include/unistd.h
-@@ -181,6 +181,44 @@
- int execvpe(const char *, char *const [], char *const []);
- int issetugid(void);
- int getentropy(void *, size_t);
-+
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+#include <errno.h>
-+#include <sys/syscall.h>
-+
-+int pthread_setcancelstate(int, int *);
-+
-+__attribute__((__weak__)) int getentropy(void *buffer, size_t len)
-+{
-+	int cs, ret = 0;
-+	char *pos = (char *)buffer;
-+
-+	if (len > 256) {
-+		errno = EIO;
-+		return -1;
-+	}
-+
-+	pthread_setcancelstate(1 /* PTHREAD_CANCEL_DISABLE */, &cs);
-+
-+	while (len) {
-+		ret = (int)syscall(SYS_getrandom, pos, len, 0);
-+		if (ret < 0) {
-+			if (errno == EINTR) continue;
-+			else break;
-+		}
-+		pos += ret;
-+		len -= ret;
-+		ret = 0;
-+	}
-+
-+	pthread_setcancelstate(cs, 0);
-+
-+	return ret;
-+}
-+
-+#endif
-+
- extern int optreset;
- #endif
- 
-@@ -206,6 +247,18 @@
+@@ -206,6 +206,18 @@
  #define ftruncate64 ftruncate
  #define lockf64 lockf
  #define off64_t off_t
@@ -480,6 +409,20 @@
  #endif
  
  #define POSIX_CLOSE_RESTART     0
+--- a/src/errno/__errno_location.c
++++ b/src/errno/__errno_location.c
+@@ -1,9 +1,9 @@
+ #include <errno.h>
+ #include "pthread_impl.h"
+ 
+-int *__errno_location(void)
++__attribute__((const)) hidden int *___errno_location(void)
+ {
+ 	return &__pthread_self()->errno_val;
+ }
+ 
+-weak_alias(__errno_location, ___errno_location);
++weak_alias(___errno_location, __errno_location);
 --- a/src/exit/at_quick_exit.c
 +++ b/src/exit/at_quick_exit.c
 @@ -31,3 +31,8 @@
@@ -491,6 +434,21 @@
 +{
 +	return at_quick_exit((void (*)(void))func);
 +}
+--- a/src/include/errno.h
++++ b/src/include/errno.h
+@@ -3,12 +3,4 @@
+ 
+ #include "../../include/errno.h"
+ 
+-#ifdef __GNUC__
+-__attribute__((const))
+-#endif
+-hidden int *___errno_location(void);
+-
+-#undef errno
+-#define errno (*___errno_location())
+-
+ #endif
 --- a/src/thread/pthread_atfork.c
 +++ b/src/thread/pthread_atfork.c
 @@ -47,3 +47,8 @@
