@@ -58,8 +58,6 @@ RUN make -C musl-cross-make \
 	install && \
 	musl-cross-make/output/${TARGET}/bin/ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
 	musl-cross-make/output/${TARGET}/bin/ranlib musl-cross-make/output/${TARGET}/lib/libc_dl.a && \
-	musl-cross-make/output/${TARGET}/bin/objcopy -N dlopen -N dlclose -N dlsym -N dlerror -N dladdr -N dlinfo musl-cross-make/output/${TARGET}/lib/libc.a musl-cross-make/output/${TARGET}/lib/libsc.a && \
-	musl-cross-make/output/${TARGET}/bin/ar d musl-cross-make/output/${TARGET}/lib/libsc.a lite_malloc.lo free.lo __tls_get_addr.lo && \
 	ln -sf libc.so musl-cross-make/output/${TARGET}/lib/ld-* && \
 	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libc.so.6 && \
 	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libpthread.so.0 && \
@@ -70,6 +68,17 @@ RUN make -C musl-cross-make \
 	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libresolv.so.2 && \
 	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libutil.so.1 && \
 	make -C musl-cross-make clean
+
+# Build libsc.a (all dl*() removed, all environment functions removed, all memory functions removed)
+RUN musl-cross-make/output/${TARGET}/bin/objcopy -N dlopen -N dlclose -N dlsym -N dlerror -N dladdr -N dlinfo -w -W '*' musl-cross-make/output/${TARGET}/lib/libc.a musl-cross-make/output/${TARGET}/lib/libsc.a && \
+	musl-cross-make/output/${TARGET}/bin/ar d musl-cross-make/output/${TARGET}/lib/libsc.a clearenv.lo getenv.lo putenv.lo secure_getenv.lo setenv.lo unsetenv.lo && \
+	musl-cross-make/output/${TARGET}/bin/ar d musl-cross-make/output/${TARGET}/lib/libsc.a aligned_alloc.lo calloc.lo memalign.lo posix_memalign.lo reallocarray.lo __tls_get_addr.lo valloc.lo && \
+	musl-cross-make/output/${TARGET}/bin/ar x musl-cross-make/output/${TARGET}/lib/libsc.a free.lo lite_malloc.lo realloc.lo && \
+	musl-cross-make/output/${TARGET}/bin/objcopy -N free free.lo && \
+	musl-cross-make/output/${TARGET}/bin/objcopy -N malloc lite_malloc.lo && \
+	musl-cross-make/output/${TARGET}/bin/objcopy -N realloc realloc.lo && \
+	musl-cross-make/output/${TARGET}/bin/ar r musl-cross-make/output/${TARGET}/lib/libsc.a free.lo lite_malloc.lo realloc.lo && \
+	rm -rf *.lo
 
 # Build patchelf
 ARG PATCHELF_BZ2_URI=https://github.com/NixOS/patchelf/releases/download/0.17.0/patchelf-0.17.0.tar.bz2
@@ -97,12 +106,15 @@ RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_
 	cd .. && \
 	rm -rf util-linux-*
 
-# Build libcompat_time64 on 32-bit architectures
+# Build libcompat_* libraries (time64 only on 32-bit architectures)
 COPY --link src /musl-cross-src/
 RUN if [[ " arm armeb i386 i686 mips mipsel powerpc " =~ " ${TARGET%%-*} " ]]; then \
 		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -nostdlib -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgcc && \
 		/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so; \
-	fi
+	fi; \
+	/musl-cross-make/output/bin/${TARGET}-gcc -O3 -fPIC -Wall -pedantic -c -o /musl-cross-make/output/${TARGET}/lib/compat_glibc.o /musl-cross-src/compat_glibc.c && \
+	/musl-cross-make/output/${TARGET}/bin/ar cr /musl-cross-make/output/${TARGET}/lib/libcompat_glibc.a /musl-cross-make/output/${TARGET}/lib/compat_glibc.o && \
+	rm -f /musl-cross-make/output/${TARGET}/lib/compat_glibc.o
 
 
 # Copy toolchain into scratch image

@@ -52,9 +52,10 @@ The toolchains are built using the [musl-cross-make](https://github.com/richfelk
 - All standard system libraries are compiled using the `-fPIC` option to support linking the static version of these libraries into shared libraries.
 - Only libc is built as both a static library and shared library.
   All other standard system libraries are built as static libraries only.
-- A patch to support the older glibc ABI, where `*stat` functionality was exposed through the `__*xstat` functions and `mknod*` functionality was exposed through the `__xmknod*` functions.
-  The patch also supports the `atexit`, `at_quick_exit`, `getrandom`, `getentropy`, and `pthread_atfork` functions as well.
-  (The patch is compatible with the current ABI.)
+- A glibc-compatible library is provided to support the older glibc ABI, where `*stat` functionality was exposed through the `__*xstat` functions and `mknod*` functionality was exposed through the `__xmknod*` functions.
+  The compatibility library also supports the `atexit`, `at_quick_exit`, and `pthread_atfork` functions as well.
+  (It is also compatible with the current ABI.)
+- A glibc-compatible time64 library is provided to support the time64 glibc ABI on systems where 64-bit time has not been implemented.
 - The `patchelf` utility is included.
 
 ### Can I use the toolchains to create static executables?

@@ -40,85 +40,6 @@
  #ifdef __cplusplus
  }
  #endif
---- a/include/sys/stat.h
-+++ b/include/sys/stat.h
-@@ -74,6 +74,45 @@
- int fstat(int, struct stat *);
- int lstat(const char *__restrict, struct stat *__restrict);
- int fstatat(int, const char *__restrict, struct stat *__restrict, int);
-+
-+#if !defined(NO_GLIBC_ABI_COMPATIBLE) && !_REDIR_TIME64
-+
-+int __xstat(int, const char *__restrict, struct stat *__restrict);
-+int __fxstat(int, int, struct stat *);
-+int __lxstat(int, const char *__restrict, struct stat *__restrict);
-+int __fxstatat(int, int, const char *__restrict, struct stat *__restrict, int);
-+
-+// See glibc xstatver.h
-+#if defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
-+#define GLIBC_ABI_XSTAT_VERSION 0
-+#elif defined(__x86_64__) || defined(__ia64__) || defined(__powerpc64__) || defined(__s390x__)
-+#define GLIBC_ABI_XSTAT_VERSION 1
-+#else
-+#define GLIBC_ABI_XSTAT_VERSION 3
-+#endif
-+
-+__attribute__((__weak__)) int stat(const char *__restrict path, struct stat *__restrict buf)
-+{
-+	return __xstat(GLIBC_ABI_XSTAT_VERSION, path, buf);
-+}
-+
-+__attribute__((__weak__)) int fstat(int fd, struct stat *buf)
-+{
-+	return __fxstat(GLIBC_ABI_XSTAT_VERSION, fd, buf);
-+}
-+
-+__attribute__((__weak__)) int lstat(const char *__restrict path, struct stat *__restrict buf)
-+{
-+	return __lxstat(GLIBC_ABI_XSTAT_VERSION, path, buf);
-+}
-+
-+__attribute__((__weak__)) int fstatat(int fd, const char *__restrict path, struct stat *__restrict buf, int flag)
-+{
-+	return __fxstatat(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag);
-+}
-+
-+#endif
-+
- int chmod(const char *, mode_t);
- int fchmod(int, mode_t);
- int fchmodat(int, const char *, mode_t, int);
-@@ -86,6 +125,30 @@
- #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
- int mknod(const char *, mode_t, dev_t);
- int mknodat(int, const char *, mode_t, dev_t);
-+
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+int __xmknod(int, const char *, mode_t, dev_t*);
-+int __xmknodat(int, int, const char *, mode_t, dev_t*);
-+
-+// See glibc xstatver.h
-+#if defined(__x86_64__) || defined(__alpha__) || defined(__ia64__) || defined(__s390x__)
-+#define GLIBC_ABI_XMKNOD_VERSION 0
-+#else
-+#define GLIBC_ABI_XMKNOD_VERSION 1
-+#endif
-+
-+__attribute__((__weak__)) int mknod(const char *path, mode_t mode, dev_t dev)
-+{
-+	return __xmknod(GLIBC_ABI_XMKNOD_VERSION, path, mode, &dev);
-+}
-+
-+__attribute__((__weak__)) int mknodat(int fd, const char *path, mode_t mode, dev_t dev)
-+{
-+	return __xmknodat(GLIBC_ABI_XMKNOD_VERSION, fd, path, mode, &dev);
-+}
-+
-+#endif
- #endif
- 
- int futimens(int, const struct timespec [2]);
 --- a/include/sys/statfs.h
 +++ b/include/sys/statfs.h
 @@ -25,6 +25,11 @@
@@ -204,22 +125,22 @@
  #endif
 --- a/include/dlfcn.h
 +++ b/include/dlfcn.h
-@@ -35,6 +35,15 @@
+@@ -35,8 +35,13 @@
  int dlinfo(void *, int, void *);
  #endif
  
+-#if _REDIR_TIME64
+-__REDIR(dlsym, __dlsym_time64);
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
-+__attribute__((__weak__)) void *__dlopen_check(const char *file, int mode)
++__attribute__((noinline, __weak__)) void *dlmopen(long int nsid, const char *file, int mode)
 +{
 +	return dlopen(file, mode);
 +}
 +
-+#define dlopen(...) __dlopen_check(__VA_ARGS__)
-+#endif
-+
- #if _REDIR_TIME64
- __REDIR(dlsym, __dlsym_time64);
++#define dlopen(...) dlmopen(0, __VA_ARGS__)
  #endif
+ 
+ #ifdef __cplusplus
 --- a/include/fcntl.h
 +++ b/include/fcntl.h
 @@ -209,6 +209,21 @@
@@ -287,30 +208,7 @@
  #endif
 --- a/include/pthread.h
 +++ b/include/pthread.h
-@@ -198,6 +198,22 @@
- 
- int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
- 
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+extern void *__dso_handle __attribute__((__visibility__("hidden")));
-+
-+__attribute__((__weak__)) int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *)
-+{
-+	return pthread_atfork(prepare, parent, child);
-+}
-+
-+__attribute__((__weak__)) int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
-+{
-+	return __register_atfork(prepare, parent, child, __dso_handle);
-+}
-+
-+#endif
-+
- int pthread_getconcurrency(void);
- int pthread_setconcurrency(int);
- 
-@@ -207,6 +223,7 @@
+@@ -207,6 +207,7 @@
  	void (*__f)(void *);
  	void *__x;
  	struct __ptcb *__next;
@@ -351,37 +249,7 @@
  #endif
 --- a/include/stdlib.h
 +++ b/include/stdlib.h
-@@ -50,6 +50,29 @@
- int at_quick_exit (void (*) (void));
- _Noreturn void quick_exit (int);
- 
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+
-+extern void *__dso_handle __attribute__((__visibility__("hidden")));
-+
-+int __cxa_atexit(void (*)(void *), void *, void *);
-+
-+__attribute__((__weak__)) int __cxa_at_quick_exit(void (*func)(void *), void *)
-+{
-+	return at_quick_exit((void (*)(void))func);
-+}
-+
-+__attribute__((__weak__)) int atexit(void (*func)(void))
-+{
-+	return __cxa_atexit((void (*)(void *))func, 0, __dso_handle);
-+}
-+
-+__attribute__((__weak__)) int at_quick_exit(void (*func)(void))
-+{
-+	return __cxa_at_quick_exit((void (*)(void *))func, __dso_handle);
-+}
-+
-+#endif
-+
- char *getenv (const char *);
- 
- int system (const char *);
-@@ -172,6 +196,15 @@
+@@ -172,6 +172,15 @@
  #endif
  #endif
  
@@ -431,25 +299,3 @@
  #endif
  
  #define POSIX_CLOSE_RESTART     0
---- a/src/exit/at_quick_exit.c
-+++ b/src/exit/at_quick_exit.c
-@@ -31,3 +31,8 @@
- 	UNLOCK(lock);
- 	return r;
- }
-+
-+int __cxa_at_quick_exit(void (*func)(void *), void *dso_handle)
-+{
-+	return at_quick_exit((void (*)(void))func);
-+}
---- a/src/thread/pthread_atfork.c
-+++ b/src/thread/pthread_atfork.c
-@@ -47,3 +47,8 @@
- 	UNLOCK(lock);
- 	return 0;
- }
-+
-+int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle)
-+{
-+	return pthread_atfork(prepare, parent, child);
-+}
