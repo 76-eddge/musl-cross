@@ -53,7 +53,7 @@ ARG LINUX_VER=headers-4.19.88-1
 # - The `-static --static` options are used to build a statically-linked toolchain (https://github.com/richfelker/musl-cross-make/issues/64)
 RUN make -C musl-cross-make \
 	COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" CFLAGS="-g0 -O3" CXXFLAGS="-g0 -O3" LDFLAGS="-s" --disable-shared --enable-static' \
-	GCC_CONFIG='--enable-default-pie --with-pic' \
+	GCC_CONFIG='--enable-default-pie --with-pic --enable-libstdcxx-backtrace=yes' \
 	BINUTILS_CONFIG='--enable-gold' \
 	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE"' \
 	TARGET=${TARGET} \
