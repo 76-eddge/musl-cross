@@ -1,12 +1,16 @@
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 extern "C" {
 #include <dlfcn.h>
+#include <errno.h>
 #include <math.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <string.h>
 #include <time.h>
 }
 
@@ -24,6 +28,25 @@ public:
 			return false;
 
 		withRandom(random);
+		return true;
+	}
+
+	static bool WithTruncatedFile(void (*withFile)(ino_t inode, mode_t mode, uid_t uid, gid_t gid, off_t size, long long m_sec), const char *filename, off_t size) {
+		struct stat info;
+		FILE *file = fopen(filename, "a");
+
+		if (!file)
+				throw std::runtime_error(std::string("fopen() failed: ") + strerror(errno));
+
+		(void)fclose(file);
+
+		if (truncate(filename, size) != 0)
+				throw std::runtime_error(std::string("truncate() failed: ") + strerror(errno));
+
+		if (stat(filename, &info) != 0)
+			return false;
+
+		withFile(info.st_ino, info.st_mode, info.st_uid, info.st_gid, info.st_size, info.st_mtime);
 		return true;
 	}
 };

@@ -1,7 +1,9 @@
 #include "test.hxx"
 
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <ios>
 #include <iostream>
 
 int runSO(int argc, const char *argv[])
@@ -20,6 +22,14 @@ int runSO(int argc, const char *argv[])
 
 	if (!test::LibC::WithRandom([](std::size_t random) { std::cout << " Random: " << random << std::endl; }))
 		std::cout << " Random functions unsupported" << std::endl;
+
+	REQUIRE(test::LibC::WithTruncatedFile([](ino_t inode, mode_t mode, uid_t uid, gid_t gid, off_t size, long long m_sec) {
+		std::cout << " WithFile {inode: " << inode << ", mode: " << std::oct << mode << std::dec << ", uid: " << uid << ", gid: " << gid << ", size: " << size << ", modification time: " << m_sec << "}" << std::endl;
+		REQUIRE(size == 1);
+	}, "TestFile.txt", 1));
+
+	REQUIRE(std::atexit([]{ std::cout << " Exiting..." << std::endl; }) == 0);
+	REQUIRE(std::at_quick_exit([]{ std::cout << " Quick exiting..." << std::endl; }) == 0);
 
 	return 0;
 }

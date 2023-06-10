@@ -5,10 +5,11 @@ RUN apk add --no-cache file make g++ git patch xz
 # (Needed for libuuid)
 RUN apk add --no-cache autoconf automake bison gettext-dev libtool pkgconfig
 
+ARG MUSL_VER=1.2.4
+
 RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	sed -i -e 's/xvf/xf/' -e 's,hashes/%.sha1 |,| hashes/%.sha1,' musl-cross-make/Makefile && \
-	ln -s gcc-11.2.0 musl-cross-make/patches/gcc-11.3.0 && \
-	ln -s musl musl-cross-make/patches/musl-$(sed -nre 's/^MUSL_VER\s*=\s*([0-9.]+)\s*$/\1/p' musl-cross-make/Makefile)
+	ln -s musl musl-cross-make/patches/musl-${MUSL_VER}
 
 COPY --link hashes musl-cross-make/hashes/
 COPY --link patches musl-cross-make/patches/
@@ -32,13 +33,14 @@ ARG TARGET=x86_64-linux-musl
 # s390x-linux-musl
 # sh*[eb]-linux-musl[fdpic][sf]
 # x86_64-linux-musl[x32]
-ARG GCC_VER=12.2.0
+ARG GCC_VER=13.1.0
+# 13.1.0
 # 12.2.0
 # 11.3.0
 ARG BINUTILS_VER=2.38
 ARG GMP_VER=6.2.1
-ARG MPC_VER=1.2.1
-ARG MPFR_VER=4.1.0
+ARG MPC_VER=1.3.1
+ARG MPFR_VER=4.2.0
 ARG LINUX_VER=headers-4.19.88-1
 
 # Build compiler
@@ -50,6 +52,7 @@ RUN make -C musl-cross-make \
 	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE"' \
 	TARGET=${TARGET} \
 	GCC_VER=${GCC_VER} \
+	MUSL_VER=${MUSL_VER} \
 	BINUTILS_VER=${BINUTILS_VER} \
 	GMP_VER=${GMP_VER} \
 	MPC_VER=${MPC_VER} \
@@ -59,14 +62,6 @@ RUN make -C musl-cross-make \
 	musl-cross-make/output/${TARGET}/bin/ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
 	musl-cross-make/output/${TARGET}/bin/ranlib musl-cross-make/output/${TARGET}/lib/libc_dl.a && \
 	ln -sf libc.so musl-cross-make/output/${TARGET}/lib/ld-* && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libc.so.6 && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libpthread.so.0 && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libm.so.6 && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libcrypt.so.1 && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libdl.so.2 && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/librt.so.1 && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libresolv.so.2 && \
-	ln -s libc.so musl-cross-make/output/${TARGET}/lib/libutil.so.1 && \
 	make -C musl-cross-make clean
 
 # Build patchelf
@@ -78,7 +73,7 @@ RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_
 	make check CFLAGS= CXXFLAGS= && \
 	mv src/patchelf ../musl-cross-make/output/bin/ && \
 	cd ../cross-patchelf && \
-	./configure --host=${TARGET/-musl/-gnu} CC=/musl-cross-make/output/bin/${TARGET}-gcc CXX=/musl-cross-make/output/bin/${TARGET}-g++ CFLAGS="-static -Os" CXXFLAGS="-static -Os" && \
+	./configure --host=${TARGET/-musl/-gnu} CXX=/musl-cross-make/output/bin/${TARGET}-g++ CXXFLAGS="-static -Os" && \
 	make && \
 	/musl-cross-make/output/bin/${TARGET}-strip src/patchelf && \
 	mkdir -p ../musl-cross-make/output/bin-native && \
@@ -107,6 +102,18 @@ RUN g++ -static -Os -Wall -o /musl-cross-make/output/bin/patchar /musl-cross-src
 	strip /musl-cross-make/output/bin/patchar && \
 	/musl-cross-make/output/bin/${TARGET}-g++ -static -Os -Wall -o /musl-cross-make/output/bin-native/patchar /musl-cross-src/patchar.cxx && \
 	/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/bin-native/patchar
+
+RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -nm /musl-cross-make/output/bin/${TARGET}-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
+		-ignore '_GLOBAL_OFFSET_TABLE_,.*[.]get_pc_thunk[.].*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__syscall_.*,-__procfdname' \
+		-defined 'strlen' -exclude '-.*basename' \
+		-exclude '-creat,-getdents,-open,-openat' \
+		-exclude '-getentropy,-getrandom' \
+		-exclude '-mknod,-mknodat' \
+		-defined '_Exit' -exclude '-.*quick_exit.*,-__lock,-__unlock,-__libc' \
+		-defined 'getenv' -exclude '-_*secure_getenv,-__libc' \
+		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
+		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
+		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__divdi3,-__divmoddi4,-__secs_to_tm,-__secs_to_zone,-__utc,-_+clock_nanosleep,-__clock_gettime,-.*time64.*(includes 39/62)*' -info
 
 
 # Copy toolchain into scratch image

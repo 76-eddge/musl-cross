@@ -9,6 +9,8 @@ MD :=mkdir -p
 PATCH_ELF :=$(if $(findstring /, $(CXX)), $(dir $(CXX)))patchelf
 CC_CXX :=$(CXX)
 CC_CXXFLAGS :=$(CXXFLAGS)
+CC_LIBS :=-luuid -pthread
+CC_SO_LIBS :=$(CC_LIBS) -lstdc++ -lgabi
 
 version:
 	$(CC_CXX) --version
@@ -38,8 +40,8 @@ $(BIN_DIR)/test.exe: $(CC_DIR)/test.exe
 endif
 
 $(CC_DIR)/%.so: $(SRC_DIR)/%So.cxx | $(CC_DIR)
-	$(CC_CXX) -shared -fPIC $(CC_CXXFLAGS) -o $@ $< $(LIBS)
+	$(CC_CXX) -shared -fPIC $(CC_CXXFLAGS) -o $@ $< $(CC_SO_LIBS)
 	$(PATCH_ELF) --remove-needed libc.so $@
 
 $(CC_DIR)/%.exe: $(SRC_DIR)/%Exe.cxx | $(CC_DIR)
-	$(CC_CXX) -static $(CC_CXXFLAGS) -o $@ $< $(LIBS)
+	$(CC_CXX) -static $(CC_CXXFLAGS) -o $@ $< $(CC_LIBS)

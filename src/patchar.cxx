@@ -389,12 +389,14 @@ int main(int argc, const char *argv[])
 			std::cerr << " -ar ar" << std::endl;
 			std::cerr << " -nm nm" << std::endl;
 			std::cerr << " -objcopy objcopy" << std::endl;
-			std::cerr << " -defined symbol1,..." << std::endl; // Assume these symbols are defined by some other library
-			std::cerr << " -exclude symbol1,..." << std::endl; // Excluded symbols are added to the defined symbols to exclude provided symbols
+			std::cerr << " -ignore symbol1,..." << std::endl; // Ignore these symbols and copy them into the output archive as-is
+			std::cerr << " -defined symbol1,..." << std::endl; // Assume these symbols are defined by some other library and don't add them to the output archive
+			std::cerr << " -exclude symbol1,..." << std::endl; // Excluded symbols are not added to the output archive as well as any symbols that require them
 			std::cerr << " -rename oldSymbol1=newSymbol1,..." << std::endl;
 			std::cerr << " -weaken" << std::endl;
 			std::cerr << " -practice" << std::endl;
 			std::cerr << " -info" << std::endl;
+			std::cerr << "Patches an archive file by treating defined symbols as symbols provided by another library and removing excluded symbols and symbols that depend on them." << std::endl;
 			return 1;
 		}
 
@@ -405,6 +407,7 @@ int main(int argc, const char *argv[])
 		const char *ar = "ar";
 		const char *nm = "nm";
 		const char *objcopy = "objcopy";
+		std::vector<Pattern> ignore;
 		std::vector<Pattern> defined;
 		std::vector<Pattern> exclude;
 		std::unordered_map<std::string, std::string> rename;
@@ -436,6 +439,8 @@ int main(int argc, const char *argv[])
 					nm = value;
 				else if (option == "objcopy")
 					objcopy = value;
+				else if (option == "ignore")
+					addCommaListToOption(value, ignore, createPattern);
 				else if (option == "defined")
 					addCommaListToOption(value, defined, createPattern);
 				else if (option == "exclude")
@@ -495,7 +500,7 @@ int main(int argc, const char *argv[])
 					auto renameIt = rename.find(requires->name());
 					const std::string &name = renameIt == rename.end() ? requires->name() : renameIt->second;
 
-					if (includedSymbols.find(name) == includedSymbols.end() && !matches(defined, name))
+					if (includedSymbols.find(name) == includedSymbols.end() && !matches(ignore, name) && !matches(defined, name))
 					{
 						included = false;
 						break;
@@ -514,7 +519,9 @@ int main(int argc, const char *argv[])
 						auto renameIt = rename.find(provides->name());
 						const std::string &name = renameIt == rename.end() ? provides->name() : renameIt->second;
 
-						if (matches(defined, name))
+						if (matches(ignore, name))
+							; // Do nothing
+						else if (matches(defined, name))
 						{
 							hideSymbols.emplace_back(provides);
 							stubSymbols.emplace(name, provides);
@@ -655,10 +662,7 @@ int main(int argc, const char *argv[])
 
 			for (const auto &symbol : pair.second)
 			{
-				if (symbol->type() == 'W')
-					hideSymbols.insert(hideSymbols.end(), {"--localize-symbol", symbol->name()});
-				else
-					hideSymbols.insert(hideSymbols.end(), {"--localize-symbol", symbol->name(), "--weaken-symbol", symbol->name()});
+				hideSymbols.insert(hideSymbols.end(), {"--localize-symbol", symbol->name()});
 			}
 
 			hideSymbols.emplace_back(pair.first->name());

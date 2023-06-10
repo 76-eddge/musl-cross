@@ -1,11 +1,16 @@
 --- a/include/sys/mman.h
 +++ b/include/sys/mman.h
-@@ -146,6 +146,10 @@
+@@ -142,10 +142,14 @@
+ int shm_unlink (const char *);
+ 
+ #if defined(_LARGEFILE64_SOURCE)
+-#define mmap64 mmap
  #define off64_t off_t
  #endif
  
 +#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(mmap, mmap64);
++__attribute__((__weak__)) void *mmap64(void *addr, size_t length, int prot, int flags, int fd, off_t offset) { return mmap(addr, length, prot, flags, fd, offset); }
++#define mmap mmap64
 +#endif
 +
  #ifdef __cplusplus
@@ -13,15 +18,34 @@
  #endif
 --- a/include/sys/resource.h
 +++ b/include/sys/resource.h
-@@ -107,6 +107,13 @@
+@@ -55,7 +55,6 @@
+ 
+ #ifdef _GNU_SOURCE
+ int prlimit(pid_t, int, const struct rlimit *, struct rlimit *);
+-#define prlimit64 prlimit
+ #endif
+ 
+ #define PRIO_MIN (-20)
+@@ -99,14 +98,22 @@
+ #define RLIM64_INFINITY RLIM_INFINITY
+ #define RLIM64_SAVED_CUR RLIM_SAVED_CUR
+ #define RLIM64_SAVED_MAX RLIM_SAVED_MAX
+-#define getrlimit64 getrlimit
+-#define setrlimit64 setrlimit
+ #define rlimit64 rlimit
+ #define rlim64_t rlim_t
+ #endif
  
  #if _REDIR_TIME64
  __REDIR(getrusage, __getrusage_time64);
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
-+__REDIR(getrlimit, getrlimit64);
-+__REDIR(setrlimit, setrlimit64);
++__attribute__((__weak__)) int getrlimit64(int resource, struct rlimit *rlim) { return getrlimit(resource, rlim); }
++__attribute__((__weak__)) int setrlimit64(int resource, const struct rlimit *rlim) { return setrlimit(resource, rlim); }
++#define getrlimit getrlimit64
++#define setrlimit setrlimit64
 +#ifdef _GNU_SOURCE
-+__REDIR(prlimit, prlimit64);
++__attribute__((__weak__)) int prlimit64(pid_t pid, int resource, const struct rlimit *new_limit, struct rlimit *old_limit) { return prlimit(pid, resource, new_limit, old_limit); }
++#define prlimit prlimit64
 +#endif
 +#endif
  #endif
@@ -29,119 +53,17 @@
  #ifdef __cplusplus
 --- a/include/sys/sendfile.h
 +++ b/include/sys/sendfile.h
-@@ -15,6 +15,10 @@
+@@ -11,10 +11,14 @@
+ ssize_t sendfile(int, int, off_t *, size_t);
+ 
+ #if defined(_LARGEFILE64_SOURCE)
+-#define sendfile64 sendfile
  #define off64_t off_t
  #endif
  
 +#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(sendfile, sendfile64);
-+#endif
-+
- #ifdef __cplusplus
- }
- #endif
---- a/include/sys/stat.h
-+++ b/include/sys/stat.h
-@@ -74,6 +74,45 @@
- int fstat(int, struct stat *);
- int lstat(const char *__restrict, struct stat *__restrict);
- int fstatat(int, const char *__restrict, struct stat *__restrict, int);
-+
-+#if !defined(NO_GLIBC_ABI_COMPATIBLE) && !_REDIR_TIME64
-+int __xstat64(int, const char *__restrict, struct stat *__restrict);
-+int __fxstat64(int, int, struct stat *);
-+int __lxstat64(int, const char *__restrict, struct stat *__restrict);
-+int __fxstatat64(int, int, const char *__restrict, struct stat *__restrict, int);
-+
-+// See glibc xstatver.h
-+#if defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
-+#define GLIBC_ABI_XSTAT_VERSION 0
-+#elif defined(__x86_64__) || defined(__ia64__) || defined(__powerpc64__) || defined(__s390x__)
-+#define GLIBC_ABI_XSTAT_VERSION 1
-+#else
-+#define GLIBC_ABI_XSTAT_VERSION 3
-+#endif
-+
-+__attribute__((__weak__)) int stat(const char *__restrict path, struct stat *__restrict buf)
-+{
-+	return __xstat64(GLIBC_ABI_XSTAT_VERSION, path, buf);
-+}
-+
-+__attribute__((__weak__)) int fstat(int fd, struct stat *buf)
-+{
-+	return __fxstat64(GLIBC_ABI_XSTAT_VERSION, fd, buf);
-+}
-+
-+__attribute__((__weak__)) int lstat(const char *__restrict path, struct stat *__restrict buf)
-+{
-+	return __lxstat64(GLIBC_ABI_XSTAT_VERSION, path, buf);
-+}
-+
-+__attribute__((__weak__)) int fstatat(int fd, const char *__restrict path, struct stat *__restrict buf, int flag)
-+{
-+	return __fxstatat64(GLIBC_ABI_XSTAT_VERSION, fd, path, buf, flag);
-+}
-+
-+#undef GLIBC_ABI_XSTAT_VERSION
-+#endif
-+
- int chmod(const char *, mode_t);
- int fchmod(int, mode_t);
- int fchmodat(int, const char *, mode_t, int);
-@@ -86,6 +125,30 @@
- #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
- int mknod(const char *, mode_t, dev_t);
- int mknodat(int, const char *, mode_t, dev_t);
-+
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+int __xmknod(int, const char *, mode_t, dev_t*);
-+int __xmknodat(int, int, const char *, mode_t, dev_t*);
-+
-+// See glibc xstatver.h
-+#if defined(__x86_64__) || defined(__alpha__) || defined(__ia64__) || defined(__s390x__)
-+#define GLIBC_ABI_XMKNOD_VERSION 0
-+#else
-+#define GLIBC_ABI_XMKNOD_VERSION 1
-+#endif
-+
-+__attribute__((__weak__)) int mknod(const char *path, mode_t mode, dev_t dev)
-+{
-+	return __xmknod(GLIBC_ABI_XMKNOD_VERSION, path, mode, &dev);
-+}
-+
-+__attribute__((__weak__)) int mknodat(int fd, const char *path, mode_t mode, dev_t dev)
-+{
-+	return __xmknodat(GLIBC_ABI_XMKNOD_VERSION, fd, path, mode, &dev);
-+}
-+
-+#undef GLIBC_ABI_XMKNOD_VERSION
-+#endif
- #endif
- 
- int futimens(int, const struct timespec [2]);
---- a/include/sys/statfs.h
-+++ b/include/sys/statfs.h
-@@ -25,6 +25,11 @@
- #define fsfilcnt64_t fsfilcnt_t
- #endif
- 
-+#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(statfs, statfs64);
-+__REDIR(fstatfs, fstatfs64);
-+#endif
-+
- #ifdef __cplusplus
- }
- #endif
---- a/include/sys/statvfs.h
-+++ b/include/sys/statvfs.h
-@@ -49,6 +49,11 @@
- #define fsfilcnt64_t fsfilcnt_t
- #endif
- 
-+#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(statvfs, statvfs64);
-+__REDIR(fstatvfs, fstatvfs64);
++__attribute__((__weak__)) ssize_t sendfile64(int out_fd, int in_fd, off_t *offset, size_t count) { return sendfile(out_fd, in_fd, offset, count); }
++#define sendfile sendfile64
 +#endif
 +
  #ifdef __cplusplus
@@ -149,77 +71,143 @@
  #endif
 --- a/include/sys/uio.h
 +++ b/include/sys/uio.h
-@@ -34,6 +34,11 @@
- #define pwritev64 pwritev
+@@ -30,10 +30,15 @@
+ ssize_t preadv (int, const struct iovec *, int, off_t);
+ ssize_t pwritev (int, const struct iovec *, int, off_t);
+ #if defined(_LARGEFILE64_SOURCE)
+-#define preadv64 preadv
+-#define pwritev64 pwritev
  #define off64_t off_t
  #endif
 +
 +#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(preadv, preadv64);
-+__REDIR(pwritev, pwritev64);
++__attribute__((__weak__)) ssize_t preadv64(int fd, const struct iovec *iov, int iovcnt, off_t offset) { return preadv(fd, iov, iovcnt, offset); }
++__attribute__((__weak__)) ssize_t pwritev64(int fd, const struct iovec *iov, int iovcnt, off_t offset) { return pwritev(fd, iov, iovcnt, offset); }
++#define preadv preadv64
++#define pwritev pwritev64
 +#endif
  #endif
  
  #ifdef _GNU_SOURCE
 --- a/include/aio.h
 +++ b/include/aio.h
-@@ -64,6 +64,15 @@
+@@ -51,19 +51,28 @@
+ 
+ #if defined(_LARGEFILE64_SOURCE)
+ #define aiocb64 aiocb
+-#define aio_read64 aio_read
+-#define aio_write64 aio_write
+-#define aio_error64 aio_error
+-#define aio_return64 aio_return
+-#define aio_cancel64 aio_cancel
+ #define aio_suspend64 aio_suspend
+-#define aio_fsync64 aio_fsync
+-#define lio_listio64 lio_listio
+ #define off64_t off_t
+ #endif
  
  #if _REDIR_TIME64
  __REDIR(aio_suspend, __aio_suspend_time64);
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
-+__REDIR(aio_read, aio_read64);
-+__REDIR(aio_write, aio_write64);
-+__REDIR(aio_error, aio_error64);
-+__REDIR(aio_return, aio_return64);
-+__REDIR(aio_cancel, aio_cancel64);
-+__REDIR(aio_fsync, aio_fsync64);
-+__REDIR(lio_listio, lio_listio64);
++__attribute__((__weak__)) int aio_read64(struct aiocb *aiocbp) { return aio_read(aiocbp); }
++__attribute__((__weak__)) int aio_write64(struct aiocb *aiocbp) { return aio_write(aiocbp); }
++__attribute__((__weak__)) int aio_error64(const struct aiocb *aiocbp) { return aio_error(aiocbp); }
++__attribute__((__weak__)) ssize_t aio_return64(struct aiocb *aiocbp) { return aio_return(aiocbp); }
++__attribute__((__weak__)) int aio_cancel64(int fd, struct aiocb *aiocbp) { return aio_cancel(fd, aiocbp); }
++__attribute__((__weak__)) int aio_fsync64(int op, struct aiocb *aiocbp) { return aio_fsync(op, aiocbp); }
++__attribute__((__weak__)) int lio_listio64(int mode, struct aiocb *__restrict const *__restrict aiocb_list, int nitems, struct sigevent *__restrict sevp) { return lio_listio(mode, aiocb_list, nitems, sevp); }
++#define aio_read aio_read64
++#define aio_write aio_write64
++#define aio_error aio_error64
++#define aio_return aio_return64
++#define aio_cancel aio_cancel64
++#define aio_fsync aio_fsync64
++#define lio_listio lio_listio64
 +#endif
  #endif
  
  #ifdef __cplusplus
 --- a/include/dirent.h
 +++ b/include/dirent.h
-@@ -68,6 +68,20 @@
+@@ -58,16 +58,26 @@
+ 
+ #if defined(_LARGEFILE64_SOURCE)
+ #define dirent64 dirent
+-#define readdir64 readdir
+-#define readdir64_r readdir_r
+-#define scandir64 scandir
+-#define alphasort64 alphasort
+-#define versionsort64 versionsort
+ #define off64_t off_t
+ #define ino64_t ino_t
  #define getdents64 getdents
  #endif
  
 +#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(readdir, readdir64);
-+__REDIR(readdir_r, readdir64_r);
-+__REDIR(scandir, scandir64);
-+__REDIR(alphasort, alphasort64);
++__attribute__((__weak__)) struct dirent *readdir64(DIR *dirp) { return readdir(dirp); }
++__attribute__((__weak__)) int readdir64_r(DIR *__restrict dirp, struct dirent *__restrict entry, struct dirent **__restrict result) { return readdir_r(dirp, entry, result); }
++__attribute__((__weak__)) int scandir64(const char *__restrict dirp, struct dirent ***__restrict namelist, int (*filter)(const struct dirent *), int (*compar)(const struct dirent **, const struct dirent **)) { return scandir(dirp, namelist, filter, compar); }
++__attribute__((__weak__)) int alphasort64(const struct dirent **a, const struct dirent **b) { return alphasort(a, b); }
++#define readdir readdir64
++#define readdir_r readdir64_r
++#define scandir scandir64
++#define alphasort alphasort64
 +#ifdef _GNU_SOURCE
-+__REDIR(versionsort, versionsort64);
++__attribute__((__weak__)) int versionsort64(const struct dirent **a, const struct dirent **b) { return versionsort(a, b); }
++#define versionsort versionsort64
 +#endif
-+#endif
-+
-+#if !defined(NO_GLIBC_ABI_COMPATIBLE) && (defined(_GNU_SOURCE) || defined(_BSD_SOURCE))
-+__REDIR(getdents, getdents64);
 +#endif
 +
  #ifdef __cplusplus
  }
  #endif
+--- a/include/dlfcn.h
++++ b/include/dlfcn.h
+@@ -36,7 +36,12 @@
+ #endif
+ 
+ #if _REDIR_TIME64
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__attribute__((__weak__)) void *__dlsym_time64(void *__restrict handle, const char *__restrict symbol) { return dlsym(handle, symbol); }
++#define dlsym __dlsym_time64
++#else
+ __REDIR(dlsym, __dlsym_time64);
++#endif
+ #endif
+ 
+ #ifdef __cplusplus
 --- a/include/fcntl.h
 +++ b/include/fcntl.h
-@@ -209,6 +209,21 @@
+@@ -184,7 +184,6 @@
+ #define SPLICE_F_MORE 4
+ #define SPLICE_F_GIFT 8
+ int fallocate(int, int, off_t, off_t);
+-#define fallocate64 fallocate
+ int name_to_handle_at(int, const char *, struct file_handle *, int *, int);
+ int open_by_handle_at(int, struct file_handle *, int);
+ ssize_t readahead(int, off_t, size_t);
+@@ -203,12 +202,24 @@
+ #define open64 open
+ #define openat64 openat
+ #define creat64 creat
+-#define lockf64 lockf
+-#define posix_fadvise64 posix_fadvise
+-#define posix_fallocate64 posix_fallocate
  #define off64_t off_t
  #endif
  
 +#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(open, open64);
-+__REDIR(openat, openat64);
-+__REDIR(creat, creat64);
-+#if !defined(__REDIR_LOCKF) && (defined(_GNU_SOURCE) || defined(_BSD_SOURCE))
-+#define __REDIR_LOCKF
-+__REDIR(lockf, lockf64);
++__attribute__((__weak__)) int posix_fadvise64(int fd, off_t offset, off_t len, int advice) { return posix_fadvise(fd, offset, len, advice); }
++__attribute__((__weak__)) int posix_fallocate64(int fd, off_t offset, off_t len) { return posix_fallocate(fd, offset, len); }
++#define posix_fadvise posix_fadvise64
++#define posix_fallocate posix_fallocate64
++#if !defined(lockf) && (defined(_GNU_SOURCE) || defined(_BSD_SOURCE))
++__attribute__((__weak__)) int lockf64(int fd, int cmd, off_t len) { return lockf(fd, cmd, len); }
++#define lockf lockf64
 +#endif
-+__REDIR(posix_fadvise, posix_fadvise64);
-+__REDIR(posix_fallocate, posix_fallocate64);
 +#if defined(_GNU_SOURCE)
-+__REDIR(fallocate, fallocate64);
++__attribute__((__weak__)) int fallocate64(int fd, int mode, off_t offset, off_t len) { return fallocate(fd, mode, offset, len); }
++#define fallocate fallocate64
 +#endif
 +#endif
 +
@@ -228,40 +216,37 @@
  #endif
 --- a/include/ftw.h
 +++ b/include/ftw.h
-@@ -34,6 +34,11 @@
- #define nftw64 nftw
+@@ -29,9 +29,11 @@
+ int ftw(const char *, int (*)(const char *, const struct stat *, int), int);
+ int nftw(const char *, int (*)(const char *, const struct stat *, int, struct FTW *), int, int);
+ 
+-#if defined(_LARGEFILE64_SOURCE)
+-#define ftw64 ftw
+-#define nftw64 nftw
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__attribute__((__weak__)) int ftw64(const char *dirpath, int (*fn)(const char *fpath, const struct stat *sb, int typeflag), int nopenfd) { return ftw(dirpath, fn, nopenfd); }
++__attribute__((__weak__)) int nftw64(const char *dirpath, int (*fn)(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf), int nopenfd, int flags) { return nftw(dirpath, fn, nopenfd, flags); }
++#define ftw ftw64
++#define nftw nftw64
  #endif
  
-+#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(ftw, ftw64);
-+__REDIR(nftw, nftw64);
-+#endif
-+
  #ifdef __cplusplus
- }
- #endif
 --- a/include/glob.h
 +++ b/include/glob.h
-@@ -45,6 +45,11 @@
+@@ -40,11 +40,16 @@
+ #define GLOB_NOSYS   4
+ 
+ #if defined(_LARGEFILE64_SOURCE)
+-#define glob64 glob
+-#define globfree64 globfree
  #define glob64_t glob_t
  #endif
  
 +#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(glob, glob64);
-+__REDIR(globfree, globfree64);
-+#endif
-+
- #ifdef __cplusplus
- }
- #endif
---- a/include/libgen.h
-+++ b/include/libgen.h
-@@ -8,6 +8,10 @@
- char *dirname(char *);
- char *basename(char *);
- 
-+#ifndef NO_GLIBC_ABI_COMPATIBLE
-+__REDIR(basename, __xpg_basename);
++__attribute__((__weak__)) int glob64(const char *__restrict pattern, int flags, int (*errfunc)(const char *epath, int eerrno), glob_t *__restrict pglob) { return glob(pattern, flags, errfunc, pglob); }
++__attribute__((__weak__)) void globfree64(glob_t *pglob) { globfree(pglob); }
++#define glob glob64
++#define globfree globfree64
 +#endif
 +
  #ifdef __cplusplus
@@ -269,28 +254,21 @@
  #endif
 --- a/include/pthread.h
 +++ b/include/pthread.h
-@@ -198,6 +198,20 @@
+@@ -198,6 +198,13 @@
  
  int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
  
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
 +extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
 +
-+__attribute__((__weak__)) int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *)
-+{
-+	return pthread_atfork(prepare, parent, child);
-+}
-+
-+__attribute__((__weak__)) int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
-+{
-+	return __register_atfork(prepare, parent, child, &__dso_handle ? __dso_handle : 0);
-+}
++__attribute__((__weak__)) int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *) { return pthread_atfork(prepare, parent, child); }
++#define pthread_atfork(prepare, parent, child) __register_atfork(prepare, parent, child, &__dso_handle ? __dso_handle : 0)
 +#endif
 +
  int pthread_getconcurrency(void);
  int pthread_setconcurrency(int);
  
-@@ -207,6 +221,7 @@
+@@ -207,6 +214,7 @@
  	void (*__f)(void *);
  	void *__x;
  	struct __ptcb *__next;
@@ -312,18 +290,36 @@
  #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) \
 --- a/include/stdio.h
 +++ b/include/stdio.h
-@@ -217,6 +217,16 @@
+@@ -206,17 +206,27 @@
+ #endif
+ 
+ #if defined(_LARGEFILE64_SOURCE)
+-#define tmpfile64 tmpfile
+-#define fopen64 fopen
+-#define freopen64 freopen
+-#define fseeko64 fseeko
+-#define ftello64 ftello
+-#define fgetpos64 fgetpos
+-#define fsetpos64 fsetpos
+ #define fpos64_t fpos_t
  #define off64_t off_t
  #endif
  
 +#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(tmpfile, tmpfile64);
-+__REDIR(fopen, fopen64);
-+__REDIR(freopen, freopen64);
-+__REDIR(fseeko, fseeko64);
-+__REDIR(ftello, ftello64);
-+__REDIR(fgetpos, fgetpos64);
-+__REDIR(fsetpos, fsetpos64);
++__attribute__((__weak__)) FILE *tmpfile64(void) { return tmpfile(); }
++__attribute__((__weak__)) FILE *fopen64(const char *__restrict pathname, const char *__restrict mode) { return fopen(pathname, mode); }
++__attribute__((__weak__)) FILE *freopen64(const char *__restrict pathname, const char *__restrict mode, FILE *__restrict stream) { return freopen(pathname, mode, stream); }
++__attribute__((__weak__)) int fseeko64(FILE *stream, off_t offset, int whence) { return fseeko(stream, offset, whence); }
++__attribute__((__weak__)) off_t ftello64(FILE *stream) { return ftello(stream); }
++__attribute__((__weak__)) int fgetpos64(FILE *__restrict stream, fpos_t *__restrict pos) { return fgetpos(stream, pos); }
++__attribute__((__weak__)) int fsetpos64(FILE *stream, const fpos_t *pos) { return fsetpos(stream, pos); }
++#define tmpfile tmpfile64
++#define fopen fopen64
++#define freopen freopen64
++#define fseeko fseeko64
++#define ftello ftello64
++#define fgetpos fgetpos64
++#define fsetpos fsetpos64
 +#endif
 +
  #ifdef __cplusplus
@@ -331,7 +327,7 @@
  #endif
 --- a/include/stdlib.h
 +++ b/include/stdlib.h
-@@ -50,6 +50,27 @@
+@@ -50,6 +50,16 @@
  int at_quick_exit (void (*) (void));
  _Noreturn void quick_exit (int);
  
@@ -339,76 +335,87 @@
 +extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
 +
 +int __cxa_atexit(void (*)(void *), void *, void *);
++__attribute__((__weak__)) int atexit(void (*func)(void)) { return __cxa_atexit((void (*)(void *))func, 0, &__dso_handle ? __dso_handle : 0); }
 +
-+__attribute__((__weak__)) int __cxa_at_quick_exit(void (*func)(void *), void *)
-+{
-+	return at_quick_exit((void (*)(void))func);
-+}
-+
-+__attribute__((__weak__)) int atexit(void (*func)(void))
-+{
-+	return __cxa_atexit((void (*)(void *))func, 0, &__dso_handle ? __dso_handle : 0);
-+}
-+
-+__attribute__((__weak__)) int at_quick_exit(void (*func)(void))
-+{
-+	return __cxa_at_quick_exit((void (*)(void *))func, &__dso_handle ? __dso_handle : 0);
-+}
++int __cxa_at_quick_exit(void (*)(void *), void *);
++#define at_quick_exit(func) __cxa_at_quick_exit(func, &__dso_handle ? __dso_handle : 0)
 +#endif
 +
  char *getenv (const char *);
  
  int system (const char *);
-@@ -172,6 +193,15 @@
- #endif
- #endif
- 
-+#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(mkstemp, mkstemp64);
-+__REDIR(mkostemp, mkostemp64);
-+#if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
-+__REDIR(mkstemps, mkstemps64);
-+__REDIR(mkostemps, mkostemps64);
-+#endif
-+#endif
+@@ -161,14 +171,23 @@
+ float strtof_l(const char *__restrict, char **__restrict, struct __locale_struct *);
+ double strtod_l(const char *__restrict, char **__restrict, struct __locale_struct *);
+ long double strtold_l(const char *__restrict, char **__restrict, struct __locale_struct *);
 +
- #ifdef __cplusplus
- }
- #endif
---- a/include/string.h
-+++ b/include/string.h
-@@ -82,8 +82,10 @@
- 
- #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
- char *strsep(char **, const char *);
-+#if defined(NO_GLIBC_ABI_COMPATIBLE)
- size_t strlcat (char *, const char *, size_t);
- size_t strlcpy (char *, const char *, size_t);
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__attribute__((__weak__)) char *__secure_getenv(const char *name) { return getenv(name); }
++__attribute__((__weak__)) char *secure_getenv(const char *name) { return __secure_getenv(name); }
 +#endif
- void explicit_bzero (void *, size_t);
+ #endif
+ 
+-#if defined(_LARGEFILE64_SOURCE)
+-#define mkstemp64 mkstemp
+-#define mkostemp64 mkostemp
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__attribute__((__weak__)) int mkstemp64(char *templat) { return mkstemp(templat); }
++__attribute__((__weak__)) int mkostemp64(char *templat, int flags) { return mkostemp(templat, flags); }
++#define mkstemp mkstemp64
++#define mkostemp mkostemp64
+ #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
+-#define mkstemps64 mkstemps
+-#define mkostemps64 mkostemps
++__attribute__((__weak__)) int mkstemps64(char *templat, int suffixlen) { return mkstemps(templat, suffixlen); }
++__attribute__((__weak__)) int mkostemps64(char *templat, int suffixlen, int flags) { return mkostemps(templat, suffixlen, flags); }
++#define mkstemps mkstemps64
++#define mkostemps mkostemps64
+ #endif
  #endif
  
 --- a/include/unistd.h
 +++ b/include/unistd.h
-@@ -206,6 +206,18 @@
- #define ftruncate64 ftruncate
- #define lockf64 lockf
- #define off64_t off_t
-+#endif
-+
-+#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
-+__REDIR(lseek, lseek64);
-+__REDIR(pread, pread64);
-+__REDIR(pwrite, pwrite64);
-+__REDIR(truncate, truncate64);
-+__REDIR(ftruncate, ftruncate64);
-+#if !defined(__REDIR_LOCKF) && (defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE))
-+#define __REDIR_LOCKF
-+__REDIR(lockf, lockf64);
-+#endif
+@@ -199,15 +199,26 @@
  #endif
  
+ #if defined(_LARGEFILE64_SOURCE)
+-#define lseek64 lseek
+-#define pread64 pread
+-#define pwrite64 pwrite
+-#define truncate64 truncate
+-#define ftruncate64 ftruncate
+-#define lockf64 lockf
+ #define off64_t off_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__attribute__((__weak__)) off_t lseek64(int fd, off_t offset, int whence) { return lseek(fd, offset, whence); }
++__attribute__((__weak__)) ssize_t pread64(int fd, void *buf, size_t count, off_t offset) { return pread(fd, buf, count, offset); }
++__attribute__((__weak__)) ssize_t pwrite64(int fd, const void *buf, size_t count, off_t offset) { return pwrite(fd, buf, count, offset); }
++__attribute__((__weak__)) int truncate64(const char *path, off_t length) { return truncate(path, length); }
++__attribute__((__weak__)) int ftruncate64(int fd, off_t length) { return ftruncate(fd, length); }
++#define lseek lseek64
++#define pread pread64
++#define pwrite pwrite64
++#define truncate truncate64
++#define ftruncate ftruncate64
++#if !defined(lockf) && (defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE))
++__attribute__((__weak__)) int lockf64(int fd, int cmd, off_t len) { return lockf(fd, cmd, len); }
++#define lockf lockf64
++#endif
++#endif
++
  #define POSIX_CLOSE_RESTART     0
+ 
+ #define _XOPEN_VERSION          700
+--- a/src/env/secure_getenv.c
++++ b/src/env/secure_getenv.c
+@@ -6,3 +6,5 @@
+ {
+ 	return libc.secure ? NULL : getenv(name);
+ }
++
++weak_alias(secure_getenv, __secure_getenv);
 --- a/src/errno/__errno_location.c
 +++ b/src/errno/__errno_location.c
 @@ -1,9 +1,9 @@
@@ -425,14 +432,27 @@
 +weak_alias(___errno_location, __errno_location);
 --- a/src/exit/at_quick_exit.c
 +++ b/src/exit/at_quick_exit.c
-@@ -31,3 +31,8 @@
+@@ -22,12 +22,19 @@
+ 	}
+ }
+ 
+-int at_quick_exit(void (*func)(void))
++int __cxa_at_quick_exit(void (*func)(void *), void *dso)
+ {
+ 	int r = 0;
+ 	LOCK(lock);
+ 	if (count == 32) r = -1;
+-	else funcs[count++] = func;
++	else funcs[count++] = (void (*)(void))func;
  	UNLOCK(lock);
  	return r;
  }
 +
-+int __cxa_at_quick_exit(void (*func)(void *), void *dso_handle)
++extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
++
++int at_quick_exit(void (*func)(void))
 +{
-+	return at_quick_exit((void (*)(void))func);
++	return __cxa_at_quick_exit((void (*)(void *))(func), &__dso_handle ? __dso_handle : 0);
 +}
 --- a/src/include/errno.h
 +++ b/src/include/errno.h
@@ -449,14 +469,43 @@
 -#define errno (*___errno_location())
 -
  #endif
---- a/src/thread/pthread_atfork.c
-+++ b/src/thread/pthread_atfork.c
-@@ -47,3 +47,8 @@
- 	UNLOCK(lock);
- 	return 0;
- }
-+
-+int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle)
-+{
-+	return pthread_atfork(prepare, parent, child);
-+}
+--- a/src/thread/__lock.c
++++ b/src/thread/__lock.c
+@@ -19,7 +19,7 @@
+ void __lock(volatile int *l)
+ {
+ 	int need_locks = libc.need_locks;
+-	if (!need_locks) return;
++	if (!need_locks && libc.auxv) return;
+ 	/* fast path: INT_MIN for the lock, +1 for the congestion */
+ 	int current = a_cas(l, 0, INT_MIN + 1);
+ 	if (need_locks < 0) libc.need_locks = 0;
+--- a/src/time/clock_gettime.c
++++ b/src/time/clock_gettime.c
+@@ -3,6 +3,7 @@
+ #include <stdint.h>
+ #include "syscall.h"
+ #include "atomic.h"
++#include "libc.h"
+ 
+ #ifdef VDSO_CGT_SYM
+ 
+@@ -33,7 +34,9 @@
+ 
+ static int cgt_init(clockid_t clk, struct timespec *ts)
+ {
+-	void *p = __vdsosym(VDSO_CGT_VER, VDSO_CGT_SYM);
++	void *p = (void *)0;
++	if (libc.auxv) {
++	p = __vdsosym(VDSO_CGT_VER, VDSO_CGT_SYM);
+ #ifdef VDSO_CGT32_SYM
+ 	if (!p) {
+ 		void *q = __vdsosym(VDSO_CGT32_VER, VDSO_CGT32_SYM);
+@@ -46,6 +49,7 @@
+ 	if (!__vdsosym(VDSO_CGT32_VER, VDSO_CGT32_SYM)) p = 0;
+ #endif
+ #endif
++	}
+ 	int (*f)(clockid_t, struct timespec *) =
+ 		(int (*)(clockid_t, struct timespec *))p;
+ 	a_cas_p(&vdso_func, (void *)cgt_init, p);
