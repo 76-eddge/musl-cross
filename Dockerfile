@@ -105,6 +105,7 @@ RUN g++ -static -Os -Wall -o /musl-cross-make/output/bin/patchar /musl-cross-src
 
 RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -nm /musl-cross-make/output/bin/${TARGET}-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
 		-ignore '_GLOBAL_OFFSET_TABLE_,.*[.]get_pc_thunk[.].*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__syscall_.*,-__procfdname' \
+		-ignore '__divdi3,__divmoddi4,__moddi3' \
 		-defined 'strlen' -exclude '-.*basename' \
 		-exclude '-creat,-getdents,-open,-openat' \
 		-exclude '-getentropy,-getrandom' \
@@ -113,7 +114,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-defined 'getenv' -exclude '-_*secure_getenv,-__libc' \
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
-		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__divdi3,-__divmoddi4,-__secs_to_tm,-__secs_to_zone,-__utc,-_+clock_nanosleep,-__clock_gettime,-.*time64.*(includes 39/62)*' -info
+		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__.*_to_secs,-__secs_to_.*,-__utc,-_+clock_nanosleep,-__clock_gettime,-__gmtime(_r)?,-.*time64.*(includes 39/62)*' -info
 
 
 # Copy toolchain into scratch image
