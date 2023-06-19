@@ -18,7 +18,9 @@
 static bool practice = false;
 static bool info = false;
 
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+	#define _GNU_SOURCE
+#endif
 
 #include <errno.h>
 #include <ext/stdio_filebuf.h>
@@ -262,7 +264,7 @@ class File
 {
 	std::string _name;
 	mutable std::vector<std::shared_ptr<Symbol>> _provides;
-	mutable std::vector<std::shared_ptr<Symbol>> _requires;
+	mutable std::vector<std::shared_ptr<Symbol>> _dependsOn;
 	mutable std::vector<std::shared_ptr<Symbol>> _internal;
 
 public:
@@ -272,7 +274,7 @@ public:
 
 	const std::string &name() const noexcept { return _name; }
 	std::vector<std::shared_ptr<Symbol>> &provides() const noexcept { return _provides; }
-	std::vector<std::shared_ptr<Symbol>> &requires() const noexcept { return _requires; }
+	std::vector<std::shared_ptr<Symbol>> &dependsOn() const noexcept { return _dependsOn; }
 	std::vector<std::shared_ptr<Symbol>> &internal() const noexcept { return _internal; }
 };
 
@@ -332,7 +334,7 @@ std::unordered_set<std::shared_ptr<File>, File::Hash> loadNMOutput(std::istream 
 			}
 
 			if (type == 'U')
-				currentFile->requires().emplace_back(std::make_shared<Symbol>(*currentFile, std::move(name), type, std::move(address)));
+				currentFile->dependsOn().emplace_back(std::make_shared<Symbol>(*currentFile, std::move(name), type, std::move(address)));
 			else if (type >= 'A' && type <= 'Z')
 				currentFile->provides().emplace_back(std::make_shared<Symbol>(*currentFile, std::move(name), type, std::move(address)));
 			else
@@ -495,10 +497,10 @@ int main(int argc, const char *argv[])
 				// Check if a file should be included based on the required symbols
 				bool included = true;
 
-				for (const auto &requires : (*it)->requires())
+				for (const auto &dependency : (*it)->dependsOn())
 				{
-					auto renameIt = rename.find(requires->name());
-					const std::string &name = renameIt == rename.end() ? requires->name() : renameIt->second;
+					auto renameIt = rename.find(dependency->name());
+					const std::string &name = renameIt == rename.end() ? dependency->name() : renameIt->second;
 
 					if (includedSymbols.find(name) == includedSymbols.end() && !matches(ignore, name) && !matches(defined, name))
 					{
@@ -596,9 +598,9 @@ int main(int argc, const char *argv[])
 					renameSymbols.emplace_back(it->first + '=' + it->second);
 			}
 
-			for (const auto &requires : file->requires())
+			for (const auto &dependency : file->dependsOn())
 			{
-				auto it = rename.find(requires->name());
+				auto it = rename.find(dependency->name());
 
 				if (it != rename.end())
 					renameSymbols.emplace_back(it->first + '=' + it->second);

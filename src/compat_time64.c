@@ -295,7 +295,6 @@ int semtimedop(int, struct sembuf*, size_t, const struct timespec32*);
 int setitimer(int, const struct itimerval32*, struct itimerval32*);
 int settimeofday(const struct timeval32*, const struct timezone*);
 int sigtimedwait(const sigset_t*, siginfo_t*, const struct timespec32*);
-int stime(const time32_t*);
 time32_t time(time32_t*);
 time32_t timegm(struct tm*);
 int timer_gettime(timer_t, struct itimerspec32*);
@@ -526,7 +525,7 @@ POSSIBLY_UNDEFINED_ATTRIBUTE void *__dlsym_time64(void *restrict handle, const c
 			return __sigtimedwait_time64;
 		if (strcmp(symbol, "stat") == 0)
 			return __stat_time64;
-		if (result == stime)
+		if (strcmp(symbol, "stime") == 0)
 			return __stime64;
 		if (strcmp(symbol, "thrd_sleep") == 0)
 			return __thrd_sleep_time64;
@@ -848,7 +847,8 @@ POSSIBLY_UNDEFINED_ATTRIBUTE int __stat_time64(const char *path, struct stat *bu
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __stime64(const time_t *tp) {
-	return stime((const time32_t*)tp + OFFSET_TIME_64_TO_32);
+	struct timespec32 time = { *((const time32_t*)tp + OFFSET_TIME_64_TO_32), 0 };
+	return clock_settime(CLOCK_REALTIME, &time);
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __thrd_sleep_time64(const struct timespec *duration, struct timespec *remaining) {
