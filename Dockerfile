@@ -33,8 +33,8 @@ ARG TARGET=x86_64-linux-musl
 # s390x-linux-musl
 # sh*[eb]-linux-musl[fdpic][sf]
 # x86_64-linux-musl[x32]
-ARG GCC_VER=13.1.0
-# 13.1.0
+ARG GCC_VER=13.2.0
+# 13.2.0
 # 12.2.0
 # 11.3.0
 ARG BINUTILS_VER=2.38
