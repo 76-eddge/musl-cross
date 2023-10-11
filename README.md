@@ -54,7 +54,7 @@ The toolchains are built using the [musl-cross-make](https://github.com/richfelk
   All other standard system libraries are built as static libraries only.
 - The C library is modified to support the older glibc ABI, where `*stat` functionality was exposed through the `__*xstat` functions and `mknod*` functionality was exposed through the `__xmknod*` functions.
   The library also supports the `atexit`, `at_quick_exit`, and `pthread_atfork` functions as well.
-  (It is also compatible with the current ABI.)
+  The `libgabi.a` supplement library must be linked (`-lgabi`) to achieve this ABI compatibility.
 - A glibc-compatible time64 library is provided to support the time64 glibc ABI on systems where 64-bit time has not been implemented.
 - The `patchelf` and `patchar` utilities are included.
 
@@ -62,6 +62,7 @@ The toolchains are built using the [musl-cross-make](https://github.com/richfelk
 
 Yes, the toolchains can be used with the `-static` option.
 None of the modifications to the toolchains should affect creating static executables.
+Note that no compatibility libraries should be linked when creating static executables.
 
 ### What is patchar?
 

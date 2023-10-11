@@ -67,10 +67,10 @@ RUN make -C musl-cross-make \
 # Build patchelf
 ARG PATCHELF_BZ2_URI=https://github.com/NixOS/patchelf/releases/download/0.17.0/patchelf-0.17.0.tar.bz2
 RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_URI") | tar xj && cp -a patchelf-* cross-patchelf && cd patchelf-* && \
-	./configure CFLAGS="-static -Os" CXXFLAGS="-static -Os" && \
+	./configure CXXFLAGS="-static -Os" && \
 	make && \
 	strip src/patchelf && \
-	make check CFLAGS= CXXFLAGS= && \
+	make check CXXFLAGS= && \
 	mv src/patchelf ../musl-cross-make/output/bin/ && \
 	cd ../cross-patchelf && \
 	./configure --host=${TARGET/-musl/-gnu} CXX=/musl-cross-make/output/bin/${TARGET}-g++ CXXFLAGS="-static -Os" && \
@@ -81,7 +81,7 @@ RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_
 	cd .. && rm -rf patchelf-* cross-patchelf
 
 # Build libuuid
-ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.38.1.tar.gz
+ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.39.2.tar.gz
 RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
 	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc CFLAGS="-g -O2 -fPIC" && \
@@ -106,7 +106,7 @@ RUN g++ -static -Os -Wall -o /musl-cross-make/output/bin/patchar /musl-cross-src
 RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -nm /musl-cross-make/output/bin/${TARGET}-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
 		-ignore '_GLOBAL_OFFSET_TABLE_,.*[.]get_pc_thunk[.].*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__syscall_.*,-__procfdname' \
 		-defined 'strlen' -exclude '-.*basename' \
-		-exclude '-creat,-getdents,-open,-openat' \
+		-exclude '-fcntl' -defined 'aio_.*,alphasort,fgetpos,fseeko,fsetpos,ftello,getpid,lio_listio,mmap,readdir,readdir_r,scandir,versionsort' -exclude '-aio_.*64,-alphasort64,-fgetpos64,-fseeko64,-fsetpos64,-ftello64,-lio_listio64,-mmap64,-readdir64,-readdir64_r,-scandir64,-versionsort64' -exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
 		-exclude '-getentropy,-getrandom' \
 		-exclude '-mknod,-mknodat' \
 		-defined '_Exit' -exclude '-.*quick_exit.*,-__lock,-__unlock,-__libc' \

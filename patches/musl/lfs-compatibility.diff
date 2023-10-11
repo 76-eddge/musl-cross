@@ -1,0 +1,206 @@
+--- a/include/sys/mman.h
++++ b/include/sys/mman.h
+@@ -146,6 +146,10 @@
+ #define off64_t off_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(mmap, mmap64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/include/aio.h
++++ b/include/aio.h
+@@ -64,6 +64,15 @@
+ 
+ #if _REDIR_TIME64
+ __REDIR(aio_suspend, __aio_suspend_time64);
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__REDIR(aio_read, aio_read64);
++__REDIR(aio_write, aio_write64);
++__REDIR(aio_error, aio_error64);
++__REDIR(aio_return, aio_return64);
++__REDIR(aio_cancel, aio_cancel64);
++__REDIR(aio_fsync, aio_fsync64);
++__REDIR(lio_listio, lio_listio64);
++#endif
+ #endif
+ 
+ #ifdef __cplusplus
+--- a/include/dirent.h
++++ b/include/dirent.h
+@@ -68,6 +68,16 @@
+ #define getdents64 getdents
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(readdir, readdir64);
++__REDIR(readdir_r, readdir64_r);
++__REDIR(scandir, scandir64);
++__REDIR(alphasort, alphasort64);
++#ifdef _GNU_SOURCE
++__REDIR(versionsort, versionsort64);
++#endif
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/include/stdio.h
++++ b/include/stdio.h
+@@ -217,6 +217,13 @@
+ #define off64_t off_t
+ #endif
+ 
++#if !defined(NO_GLIBC_ABI_COMPATIBLE) && _REDIR_TIME64
++__REDIR(fseeko, fseeko64);
++__REDIR(ftello, ftello64);
++__REDIR(fgetpos, fgetpos64);
++__REDIR(fsetpos, fsetpos64);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/src/aio/aio.c
++++ b/src/aio/aio.c
+@@ -430,3 +430,12 @@
+ 	 * We are not a lock holder anyway; the thread in the parent was. */
+ 	pthread_rwlock_init(&maplock, 0);
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int aio_cancel64(int fd, struct aiocb *cb) { return aio_cancel(fd, cb); }
++__attribute__((__weak__)) int aio_error64(const struct aiocb *cb) { return aio_error(cb); }
++__attribute__((__weak__)) int aio_fsync64(int op, struct aiocb *cb) { return aio_fsync(op, cb); }
++__attribute__((__weak__)) int aio_read64(struct aiocb *cb) { return aio_read(cb); }
++__attribute__((__weak__)) ssize_t aio_return64(struct aiocb *cb) { return aio_return(cb); }
++__attribute__((__weak__)) int aio_write64(struct aiocb *cb) { return aio_write(cb); }
++#endif
+--- a/src/aio/lio_listio.c
++++ b/src/aio/lio_listio.c
+@@ -139,3 +139,7 @@
+ 
+ 	return 0;
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int lio_listio64(int mode, struct aiocb *restrict const *restrict cbs, int cnt, struct sigevent *restrict sev) { return lio_listio(mode, cbs, cnt, sev); }
++#endif
+--- a/src/dirent/alphasort.c
++++ b/src/dirent/alphasort.c
+@@ -5,3 +5,7 @@
+ {
+ 	return strcoll((*a)->d_name, (*b)->d_name);
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int alphasort64(const struct dirent **a, const struct dirent **b) { return alphasort(a, b); }
++#endif
+--- a/src/dirent/readdir.c
++++ b/src/dirent/readdir.c
+@@ -25,3 +25,7 @@
+ 	dir->tell = de->d_off;
+ 	return de;
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) struct dirent *readdir64(DIR *dir) { return readdir(dir); }
++#endif
+--- a/src/dirent/readdir_r.c
++++ b/src/dirent/readdir_r.c
+@@ -25,3 +25,7 @@
+ 	*result = buf;
+ 	return 0;
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int readdir64_r(DIR *restrict dir, struct dirent *restrict buf, struct dirent **restrict result) { return readdir_r(dir, buf, result); }
++#endif
+--- a/src/dirent/scandir.c
++++ b/src/dirent/scandir.c
+@@ -43,3 +43,9 @@
+ 	*res = names;
+ 	return cnt;
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int scandir64(const char *path, struct dirent ***res,
++	int (*sel)(const struct dirent *),
++	int (*cmp)(const struct dirent **, const struct dirent **)) { return scandir(path, res, sel, cmp); }
++#endif
+--- a/src/dirent/versionsort.c
++++ b/src/dirent/versionsort.c
+@@ -6,3 +6,7 @@
+ {
+ 	return strverscmp((*a)->d_name, (*b)->d_name);
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int versionsort64(const struct dirent **a, const struct dirent **b) { return versionsort(a, b); }
++#endif
+--- a/src/misc/setrlimit.c
++++ b/src/misc/setrlimit.c
+@@ -3,6 +3,10 @@
+ #include "syscall.h"
+ #include "libc.h"
+ 
++#if _REDIR_TIME64 && defined(SYS_setrlimit)
++#undef SYS_setrlimit
++#endif
++
+ #define MIN(a, b) ((a)<(b) ? (a) : (b))
+ #define FIX(x) do{ if ((x)>=SYSCALL_RLIM_INFINITY) (x)=RLIM_INFINITY; }while(0)
+ 
+--- a/src/mman/mmap.c
++++ b/src/mman/mmap.c
+@@ -37,3 +37,7 @@
+ }
+ 
+ weak_alias(__mmap, mmap);
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) void *mmap64(void *start, size_t len, int prot, int flags, int fd, off_t off) { return mmap(start, len, prot, flags, fd, off); }
++#endif
+--- a/src/stdio/fgetpos.c
++++ b/src/stdio/fgetpos.c
+@@ -7,3 +7,7 @@
+ 	*(long long *)pos = off;
+ 	return 0;
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int fgetpos64(FILE *restrict f, fpos_t *restrict pos) { return fgetpos(f, pos); }
++#endif
+--- a/src/stdio/fseek.c
++++ b/src/stdio/fseek.c
+@@ -46,3 +46,7 @@
+ }
+ 
+ weak_alias(__fseeko, fseeko);
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int fseeko64(FILE *f, off_t off, int whence) { return fseeko(f, off, whence); }
++#endif
+--- a/src/stdio/fsetpos.c
++++ b/src/stdio/fsetpos.c
+@@ -4,3 +4,7 @@
+ {
+ 	return __fseeko(f, *(const long long *)pos, SEEK_SET);
+ }
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) int fsetpos64(FILE *f, const fpos_t *pos) { return fsetpos(f, pos); }
++#endif
+--- a/src/stdio/ftell.c
++++ b/src/stdio/ftell.c
+@@ -37,3 +37,7 @@
+ }
+ 
+ weak_alias(__ftello, ftello);
++
++#if _REDIR_TIME64
++__attribute__((__weak__)) off_t ftello64(FILE *f) { return ftello(f); }
++#endif
