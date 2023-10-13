@@ -1,6 +1,6 @@
 # Build using Alpine image
 FROM alpine AS setup
-RUN apk add --no-cache file make g++ git patch xz
+RUN apk add --no-cache file make g++ git linux-headers patch xz
 
 # (Needed for libuuid)
 RUN apk add --no-cache autoconf automake bison gettext-dev libtool pkgconfig
@@ -37,10 +37,10 @@ ARG GCC_VER=13.2.0
 # 13.2.0
 # 12.2.0
 # 11.3.0
-ARG BINUTILS_VER=2.38
-ARG GMP_VER=6.2.1
+ARG BINUTILS_VER=2.41
+ARG GMP_VER=6.3.0
 ARG MPC_VER=1.3.1
-ARG MPFR_VER=4.2.0
+ARG MPFR_VER=4.2.1
 ARG ISL_VER=0.26
 ARG LINUX_VER=headers-4.19.88-1
 
