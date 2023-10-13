@@ -41,6 +41,7 @@ ARG BINUTILS_VER=2.38
 ARG GMP_VER=6.2.1
 ARG MPC_VER=1.3.1
 ARG MPFR_VER=4.2.0
+ARG ISL_VER=0.26
 ARG LINUX_VER=headers-4.19.88-1
 
 # Build compiler
@@ -57,6 +58,7 @@ RUN make -j4 -C musl-cross-make \
 	GMP_VER=${GMP_VER} \
 	MPC_VER=${MPC_VER} \
 	MPFR_VER=${MPFR_VER} \
+	ISL_VER=${ISL_VER} \
 	LINUX_VER=${LINUX_VER} \
 	install && \
 	musl-cross-make/output/${TARGET}/bin/ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
