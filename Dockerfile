@@ -109,13 +109,17 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-ignore '_GLOBAL_OFFSET_TABLE_,.*[.]get_pc_thunk[.].*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__syscall_.*,-__procfdname' \
 		-defined 'strlen' -exclude '-.*basename' \
 		-exclude '-fcntl' -defined 'aio_.*,alphasort,fgetpos,fseeko,fsetpos,ftello,getpid,lio_listio,mmap,readdir,readdir_r,scandir,versionsort' -exclude '-aio_.*64,-alphasort64,-fgetpos64,-fseeko64,-fsetpos64,-ftello64,-lio_listio64,-mmap64,-readdir64,-readdir64_r,-scandir64,-versionsort64' -exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
+		-exclude ',-__fpclassify.?,-__math_.*,-frexp.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-scalbl?n.?' \
 		-exclude '-getentropy,-getrandom' \
 		-exclude '-mknod,-mknodat' \
 		-defined '_Exit' -exclude '-.*quick_exit.*,-__lock,-__unlock,-__libc' \
 		-defined 'getenv' -exclude '-_*secure_getenv,-__libc' \
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
-		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__divdi3,-__divmoddi4,-__secs_to_tm,-__secs_to_zone,-__utc,-_+clock_nanosleep,-__clock_gettime,-.*time64.*(includes 39/62)*' -info
+		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__divdi3,-__divmoddi4,-__secs_to_tm,-__secs_to_zone,-__utc,-_+clock_nanosleep,-__clock_gettime(64)?,-.*time64.*(includes 39/62)*' -info && \
+	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
+	/musl-cross-make/output/${TARGET}/bin/ar ru /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
+	rm -rf compat_libc.o
 
 
 # Copy toolchain into scratch image

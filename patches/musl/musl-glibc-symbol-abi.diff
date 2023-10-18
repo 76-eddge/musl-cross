@@ -22,7 +22,7 @@
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
 +extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
 +
-+__attribute__((__weak__)) int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *) { return pthread_atfork(prepare, parent, child); }
++int __register_atfork(void (*)(void), void (*)(void), void (*)(void), void *);
 +#define pthread_atfork(prepare, parent, child) __register_atfork(prepare, parent, child, &__dso_handle ? __dso_handle : 0)
 +#endif
 +
@@ -51,24 +51,26 @@
  #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) \
 --- a/include/stdlib.h
 +++ b/include/stdlib.h
-@@ -50,6 +50,16 @@
+@@ -50,6 +50,18 @@
  int at_quick_exit (void (*) (void));
  _Noreturn void quick_exit (int);
  
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
 +extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
++typedef void (*__cxa_func)(void *);
++static inline __cxa_func __cxa_func_convert(void (*func)(void)) { return (__cxa_func)func; }
 +
-+int __cxa_atexit(void (*)(void *), void *, void *);
-+__attribute__((__weak__)) int atexit(void (*func)(void)) { return __cxa_atexit((void (*)(void *))func, 0, &__dso_handle ? __dso_handle : 0); }
++int __cxa_atexit(__cxa_func, void *, void *);
++__attribute__((__weak__)) int atexit(void (*func)(void)) { return __cxa_atexit(__cxa_func_convert(func), 0, &__dso_handle ? __dso_handle : 0); }
 +
-+int __cxa_at_quick_exit(void (*)(void *), void *);
-+#define at_quick_exit(func) __cxa_at_quick_exit(func, &__dso_handle ? __dso_handle : 0)
++int __cxa_at_quick_exit(__cxa_func, void *);
++#define at_quick_exit(func) __cxa_at_quick_exit(__cxa_func_convert(func), &__dso_handle ? __dso_handle : 0)
 +#endif
 +
  char *getenv (const char *);
  
  int system (const char *);
-@@ -161,6 +171,11 @@
+@@ -161,6 +173,11 @@
  float strtof_l(const char *__restrict, char **__restrict, struct __locale_struct *);
  double strtod_l(const char *__restrict, char **__restrict, struct __locale_struct *);
  long double strtold_l(const char *__restrict, char **__restrict, struct __locale_struct *);
@@ -152,6 +154,17 @@
  	/* fast path: INT_MIN for the lock, +1 for the congestion */
  	int current = a_cas(l, 0, INT_MIN + 1);
  	if (need_locks < 0) libc.need_locks = 0;
+--- a/src/thread/pthread_atfork.c
++++ b/src/thread/pthread_atfork.c
+@@ -53,3 +53,8 @@
+ 	UNLOCK(lock);
+ 	return 0;
+ }
++
++int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle)
++{
++	return pthread_atfork(prepare, parent, child);
++}
 --- a/src/time/clock_gettime.c
 +++ b/src/time/clock_gettime.c
 @@ -3,6 +3,7 @@

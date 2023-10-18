@@ -10,12 +10,14 @@ extern "C" {
 #include <pthread.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <string.h>
 #include <time.h>
 }
 
-#define QUOTE(X) #X
-#define REQUIRE(X) do { bool REQUIRE_result_ = bool(X); if (!REQUIRE_result_) throw std::runtime_error("Assertion failed: " QUOTE(X) " at " QUOTE(__FILE__) ":" QUOTE(__LINE__)); } while (false)
+#define QUOTE_(X) #X
+#define QUOTE(X) QUOTE_(X)
+#define REQUIRE(X) do { bool REQUIRE_result_ = bool(X); if (!REQUIRE_result_) throw std::runtime_error("Assertion failed: " QUOTE(X) " at " __FILE__ ":" QUOTE(__LINE__)); } while (false)
 
 namespace test {
 
@@ -125,6 +127,67 @@ public:
 			(void)pthread_join(threads[i], nullptr);
 
 		return threadCount == count;
+	}
+
+private:
+	enum ForkStatus {
+		UNFORKED,
+		PREPARING_TO_FORK,
+		FORKED_AS_PARENT,
+		FORKED_AS_CHILD
+	};
+
+	static ForkStatus &GetForkStatus() {
+		static ForkStatus status = UNFORKED;
+		return status;
+	}
+
+	// See glibc issue 16742:
+	//  [16742] malloc: race condition: pthread_atfork() called before first
+	//    malloc() results in unexpected locking behaviour/deadlocks
+	static void *HackToFixGlibcAtForkBug() {
+		return malloc(42);
+	}
+
+	static void OnPreparingToFork() {
+		REQUIRE(GetForkStatus() == UNFORKED);
+		GetForkStatus() = PREPARING_TO_FORK;
+	}
+
+	static void OnForkedAsParent() {
+		REQUIRE(GetForkStatus() == PREPARING_TO_FORK);
+		GetForkStatus() = FORKED_AS_PARENT;
+	}
+
+	static void OnForkedAsChild() {
+		REQUIRE(GetForkStatus() == PREPARING_TO_FORK);
+		GetForkStatus() = FORKED_AS_CHILD;
+		_exit(0);
+	}
+
+public:
+	static bool TestFork() {
+		if (GetForkStatus() == UNFORKED) {
+			(void)HackToFixGlibcAtForkBug();
+			int error = pthread_atfork(OnPreparingToFork, OnForkedAsParent, OnForkedAsChild);
+
+			if (error != 0)
+				throw std::runtime_error(std::string("pthread_atfork() failed: ") + strerror(error));
+
+			pid_t child = fork();
+
+			if (child <= 0)
+				throw std::runtime_error(std::string("fork() failed: ") + strerror(errno));
+
+			int childStatus;
+
+			if (waitpid(child, &childStatus, 0) != child)
+				throw std::runtime_error(std::string("waitpid() failed: ") + strerror(errno));
+			else if (!(WIFEXITED(childStatus)) || WEXITSTATUS(childStatus) != 0)
+				throw std::runtime_error(std::string("bad fork()ed child exit status: ") + std::to_string(childStatus));
+		}
+
+		return GetForkStatus() == FORKED_AS_PARENT;
 	}
 };
 
