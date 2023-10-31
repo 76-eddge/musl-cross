@@ -109,7 +109,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-ignore '_GLOBAL_OFFSET_TABLE_,.*[.]get_pc_thunk[.].*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__syscall_.*,-__procfdname' \
 		-defined 'strlen' -exclude '-.*basename' \
 		-exclude '-fcntl' -defined 'aio_.*,alphasort,fgetpos,fseeko,fsetpos,ftello,getpid,lio_listio,mmap,readdir,readdir_r,scandir,versionsort' -exclude '-aio_.*64,-alphasort64,-fgetpos64,-fseeko64,-fsetpos64,-ftello64,-lio_listio64,-mmap64,-readdir64,-readdir64_r,-scandir64,-versionsort64' -exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
-		-exclude ',-__fpclassify.?,-__math_.*,-frexp.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-scalbl?n.?' \
+		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?, -l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
 		-exclude '-getentropy,-getrandom' \
 		-exclude '-mknod,-mknodat' \
 		-defined '_Exit' -exclude '-.*quick_exit.*,-__lock,-__unlock,-__libc' \
