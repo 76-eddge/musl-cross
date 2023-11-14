@@ -82,22 +82,7 @@ RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_
 	mv src/patchelf ../musl-cross-make/output/bin-native/ && \
 	cd .. && rm -rf patchelf-* cross-patchelf
 
-# Build libuuid
-ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.39.2.tar.gz
-RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
-	./autogen.sh && \
-	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc CFLAGS="-g -O2 -fPIC" && \
-	make -j && \
-	mv libuuid.la .libs/libuuid.a ../musl-cross-make/output/${TARGET}/lib/ && \
-	cd .. && \
-	rm -rf util-linux-*
-
-# Build libcompat_* libraries (time64 only on 32-bit architectures)
 COPY --link src /musl-cross-src/
-RUN if [[ " arm armeb i386 i686 mips mipsel powerpc " =~ " ${TARGET%%-*} " ]]; then \
-		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -nostdlib -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgcc && \
-		/musl-cross-make/output/bin/${TARGET}-strip --remove-section=.comment --remove-section=.note.* /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so; \
-	fi;
 
 # Build patchar
 RUN g++ -static -Os -Wall -o /musl-cross-make/output/bin/patchar /musl-cross-src/patchar.cxx && \
@@ -106,7 +91,7 @@ RUN g++ -static -Os -Wall -o /musl-cross-make/output/bin/patchar /musl-cross-src
 	/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/bin-native/patchar
 
 RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -nm /musl-cross-make/output/bin/${TARGET}-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
-		-ignore '_GLOBAL_OFFSET_TABLE_,.*[.]get_pc_thunk[.].*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__syscall_.*,-__procfdname' \
+		-ignore '_GLOBAL_OFFSET_TABLE_,.*[.]get_pc_thunk[.].*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__moddi3,-__procfdname,-__syscall_.*,-__u?divdi3,-__u?divmoddi4' \
 		-defined 'strlen' -exclude '-.*basename' \
 		-exclude '-fcntl' -defined 'aio_.*,alphasort,fgetpos,fseeko,fsetpos,ftello,getpid,lio_listio,mmap,readdir,readdir_r,scandir,versionsort' -exclude '-aio_.*64,-alphasort64,-fgetpos64,-fseeko64,-fsetpos64,-ftello64,-lio_listio64,-mmap64,-readdir64,-readdir64_r,-scandir64,-versionsort64' -exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
 		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?, -l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
@@ -116,10 +101,26 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-defined 'getenv' -exclude '-_*secure_getenv,-__libc' \
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
-		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__u?divdi3,-__u?divmoddi4,-__secs_to_tm,-__secs_to_zone,-__utc,-_+clock_nanosleep,-__clock_gettime(64)?,-.*time64.*(includes 39/62)*' -info && \
+		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__.*_to_secs,-__secs_to_.*,-__utc,-_+clock_nanosleep,-__clock_gettime(64)?,-timespec_get,-.*time64.*(includes 39/62)*' -info && \
 	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
 	/musl-cross-make/output/${TARGET}/bin/ar ru /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
 	rm -rf compat_libc.o
+
+# Build libuuid
+ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.39.2.tar.gz
+RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
+	./autogen.sh && \
+	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc CFLAGS="-g -O2 -fPIC -lgabi" && \
+	make -j && \
+	mv libuuid.la .libs/libuuid.a ../musl-cross-make/output/${TARGET}/lib/ && \
+	cd .. && \
+	rm -rf util-linux-*
+
+# Build libcompat_* libraries (time64 only on 32-bit architectures)
+RUN if [[ " arm armeb i386 i686 mips mipsel powerpc " =~ " ${TARGET%%-*} " ]]; then \
+		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -nostdlib -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgabi -lgcc && \
+		/musl-cross-make/output/bin/${TARGET}-strip --remove-section=.comment --remove-section=.note.* /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so; \
+	fi;
 
 
 # Copy toolchain into scratch image

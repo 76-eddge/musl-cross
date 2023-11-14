@@ -930,12 +930,7 @@ POSSIBLY_UNDEFINED_ATTRIBUTE int __timerfd_settime64(int fd, int flags, const st
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __timespec_get_time64(struct timespec *ts, int base) {
-	int result = timespec_get((struct timespec32*)ts, base);
-
-	if (result && ts)
-		*ts = ConvertTimeSpec32To64(*(struct timespec32*)ts);
-
-	return result;
+	return base == TIME_UTC && __clock_gettime64(CLOCK_REALTIME, ts) == 0 ? base : 0;
 }
 
 POSSIBLY_UNDEFINED_ATTRIBUTE int __utime64(const char *filename, const struct utimbuf *times) {
