@@ -103,7 +103,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-defined 'getenv' -exclude '-_*secure_getenv,-__libc' \
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
-		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__.*_to_secs,-__secs_to_.*,-__utc,-_+clock_nanosleep,-__clock_gettime(64)?,-timespec_get,-.*time64.*(includes 39/62)*' -info && \
+		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__.*_to_secs,-__secs_to_.*,-__utc,-_+clock_nanosleep,-__clock_gettime(64)?,-__gmtime(_r)?,-timespec_get,-.*time64.*(includes 39/62)*' -info && \
 	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
 	/musl-cross-make/output/${TARGET}/bin/ar ru /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
 	rm -rf compat_libc.o
