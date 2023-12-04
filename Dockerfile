@@ -91,19 +91,19 @@ RUN g++ -static -Os -Wall -o /musl-cross-make/output/bin/patchar /musl-cross-src
 	/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/bin-native/patchar
 
 RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -nm /musl-cross-make/output/bin/${TARGET}-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
-		-ignore '_GLOBAL_OFFSET_TABLE_,_.*[.]get_pc_thunk[.].*,_(rest|save)[gf]pr[0-2]?_[0-9]+.*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__a_.*,-__procfdname,-__syscall_.*' \
+		-ignore '_GLOBAL_OFFSET_TABLE_,_.*[.]get_pc_thunk[.].*,_(rest|save)[gf]pr[0-2]?_[0-9]+.*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__a_.*,-__libc,-__lock,-__procfdname,-__syscall_.*,-__unlock' \
 		-ignore '__aeabi_.*,__.*di[34],__.*[dst]f[ds]i,__.*[ds]i[dst]f,__mul[dstx]c3,__.*tf[23],__.*tf[ds]f2' \
 		-defined 'strlen' -exclude '-.*basename' \
 		-defined 'memset' -exclude '-explicit_bzero' \
-		-exclude '-fcntl' -defined 'aio_.*,alphasort,fgetpos,fseeko,fsetpos,ftello,getpid,lio_listio,mmap,readdir,readdir_r,scandir,versionsort' -exclude '-aio_.*64,-alphasort64,-fgetpos64,-fseeko64,-fsetpos64,-ftello64,-lio_listio64,-mmap64,-readdir64,-readdir64_r,-scandir64,-versionsort64' -exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
-		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?, -l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
+		-exclude '-fcntl' -defined 'aio_.*,alphasort,fgetpos,fseeko,fsetpos,ftello,getpid,lio_listio,mmap,scandir,versionsort' -exclude '-aio_.*64,-alphasort64,-fgetpos64,-fseeko64,-fsetpos64,-ftello64,-lio_listio64,-mmap64,-readdir(64)?,-readdir(64)?_r,-scandir64,-versionsort64' -exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-_*lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
+		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?,-l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
 		-exclude '-getentropy,-getrandom' \
 		-exclude '-mknod,-mknodat' \
-		-defined '_Exit' -exclude '-.*quick_exit.*,-__lock,-__unlock,-__libc' \
-		-defined 'getenv' -exclude '-_*secure_getenv,-__libc' \
+		-defined '_Exit' -exclude '-.*quick_exit.*' \
+		-defined 'getenv' -exclude '-_*secure_getenv' \
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
-		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__libc,-__vdsosym,-__convert_scm_timestamps,-__.*_to_secs,-__secs_to_.*,-__utc,-_+clock_nanosleep,-__clock_gettime(64)?,-__gmtime(_r)?,-timespec_get,-.*time64.*(includes 39/62)*' -info && \
+		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__vdsosym,-__.*_to_secs,-__secs_to_.*,-__utc,-_*clock_nanosleep,-_*clock_gettime(64)?,-_*futimesat,-_*gmtime(_r)?,-timespec_get,-.*time64.*(includes 39/62)*' -info && \
 	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
 	/musl-cross-make/output/${TARGET}/bin/ar ru /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
 	rm -rf compat_libc.o

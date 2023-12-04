@@ -154,12 +154,10 @@
  #define MIN(a, b) ((a)<(b) ? (a) : (b))
  #define FIX(x) do{ if ((x)>=SYSCALL_RLIM_INFINITY) (x)=RLIM_INFINITY; }while(0)
  
---- a/src/mman/mmap.c
-+++ b/src/mman/mmap.c
-@@ -37,3 +37,7 @@
- }
- 
- weak_alias(__mmap, mmap);
+--- /dev/null
++++ b/src/mman/mmap64.c
+@@ -0,0 +1,5 @@
++#include <sys/mman.h>
 +
 +#if _REDIR_TIME64
 +__attribute__((__weak__)) void *mmap64(void *start, size_t len, int prot, int flags, int fd, off_t off) { return mmap(start, len, prot, flags, fd, off); }
