@@ -1,0 +1,234 @@
+--- a/bfd/plugin.c
++++ b/bfd/plugin.c
+@@ -363,8 +363,9 @@
+   if (plugin_list_iter)
+     pname = plugin_list_iter->plugin_name;
+ 
+-  plugin_handle = dlopen (pname, RTLD_NOW);
+-  if (!plugin_handle)
++  onload = ld_plugin_find_static(pname);
++  plugin_handle = onload ? NULL : dlopen (pname, RTLD_NOW);
++  if (!onload && !plugin_handle)
+     {
+       /* If we are building a list of viable plugins, then
+ 	 we do not bother the user with the details of any
+@@ -401,7 +402,8 @@
+   if (build_list_p)
+     goto short_circuit;
+ 
+-  onload = dlsym (plugin_handle, "onload");
++  if (!onload)
++    onload = dlsym (plugin_handle, "onload");
+   if (!onload)
+     goto short_circuit;
+ 
+--- a/binutils/Makefile.am
++++ b/binutils/Makefile.am
+@@ -268,6 +268,7 @@
+ strip_new_SOURCES = objcopy.c is-strip.c rename.c $(WRITE_DEBUG_SRCS) $(BULIBS)
+ 
+ nm_new_SOURCES = nm.c demanguse.c $(BULIBS)
++nm_new_LDADD = $(BFDLIB) -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LIBINTL)
+ 
+ objdump_SOURCES = objdump.c dwarf.c prdbg.c demanguse.c $(DEBUG_SRCS) $(BULIBS) $(ELFLIBS)
+ EXTRA_objdump_SOURCES = od-elf32_avr.c od-macho.c od-xcoff.c od-pe.c
+@@ -290,11 +291,11 @@
+ ar_SOURCES = arparse.y arlex.l ar.c not-ranlib.c arsup.c rename.c binemul.c \
+ 	emul_$(EMULATION).c $(BULIBS)
+ EXTRA_ar_SOURCES = $(CFILES)
+-ar_LDADD = $(BFDLIB) $(LIBIBERTY) $(LEXLIB) $(LIBINTL)
++ar_LDADD = $(BFDLIB) -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LEXLIB) $(LIBINTL)
+ 
+ ranlib_SOURCES = ar.c is-ranlib.c arparse.y arlex.l arsup.c rename.c \
+ 	binemul.c emul_$(EMULATION).c $(BULIBS)
+-ranlib_LDADD = $(BFDLIB) $(LIBIBERTY) $(LEXLIB) $(LIBINTL)
++ranlib_LDADD = $(BFDLIB) -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LEXLIB) $(LIBINTL)
+ 
+ addr2line_SOURCES = addr2line.c $(BULIBS)
+ 
+--- a/binutils/Makefile.in
++++ b/binutils/Makefile.in
+@@ -796,6 +796,7 @@
+ elfedit_LDADD = $(LIBINTL) $(LIBIBERTY)
+ strip_new_SOURCES = objcopy.c is-strip.c rename.c $(WRITE_DEBUG_SRCS) $(BULIBS)
+ nm_new_SOURCES = nm.c demanguse.c $(BULIBS)
++nm_new_LDADD = $(BFDLIB) -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LIBINTL)
+ objdump_SOURCES = objdump.c dwarf.c prdbg.c demanguse.c $(DEBUG_SRCS) $(BULIBS) $(ELFLIBS)
+ EXTRA_objdump_SOURCES = od-elf32_avr.c od-macho.c od-xcoff.c od-pe.c
+ objdump_LDADD = $(OBJDUMP_PRIVATE_OFILES) $(OPCODES) $(LIBCTF) $(BFDLIB) $(LIBIBERTY) $(LIBINTL) $(DEBUGINFOD_LIBS) $(LIBSFRAME)
+@@ -804,11 +804,11 @@
+ 	emul_$(EMULATION).c $(BULIBS)
+ 
+ EXTRA_ar_SOURCES = $(CFILES)
+-ar_LDADD = $(BFDLIB) $(LIBIBERTY) $(LEXLIB) $(LIBINTL)
++ar_LDADD = $(BFDLIB) -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LEXLIB) $(LIBINTL)
+ ranlib_SOURCES = ar.c is-ranlib.c arparse.y arlex.l arsup.c rename.c \
+ 	binemul.c emul_$(EMULATION).c $(BULIBS)
+ 
+-ranlib_LDADD = $(BFDLIB) $(LIBIBERTY) $(LEXLIB) $(LIBINTL)
++ranlib_LDADD = $(BFDLIB) -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LEXLIB) $(LIBINTL)
+ addr2line_SOURCES = addr2line.c $(BULIBS)
+ srconv_SOURCES = srconv.c coffgrok.c $(BULIBS)
+ dlltool_SOURCES = dlltool.c defparse.y deflex.l $(BULIBS)
+--- a/gold/Makefile.am
++++ b/gold/Makefile.am
+@@ -186,7 +186,7 @@
+ 
+ sources_var = main.cc
+ deps_var = $(TARGETOBJS) libgold.a $(LIBIBERTY) $(LIBINTL_DEP)
+-ldadd_var = $(TARGETOBJS) libgold.a $(LIBIBERTY) $(GOLD_LDADD) $(LIBINTL) \
++ldadd_var = $(TARGETOBJS) libgold.a -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(GOLD_LDADD) $(LIBINTL) \
+ 	 $(THREADLIBS) $(LIBDL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
+ ldflags_var = $(GOLD_LDFLAGS)
+ 
+@@ -200,12 +200,12 @@
+ incremental_dump_SOURCES = incremental-dump.cc
+ incremental_dump_DEPENDENCIES = $(TARGETOBJS) libgold.a $(LIBIBERTY) \
+ 	$(LIBINTL_DEP)
+-incremental_dump_LDADD = $(TARGETOBJS) libgold.a $(LIBIBERTY) $(LIBINTL) \
++incremental_dump_LDADD = $(TARGETOBJS) libgold.a -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LIBINTL) \
+ 	 $(THREADLIBS) $(LIBDL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
+ 
+ dwp_SOURCES = dwp.cc
+ dwp_DEPENDENCIES = libgold.a $(LIBIBERTY) $(LIBINTL_DEP)
+-dwp_LDADD = libgold.a $(LIBIBERTY) $(GOLD_LDADD) $(LIBINTL) $(THREADLIBS) \
++dwp_LDADD = libgold.a -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(GOLD_LDADD) $(LIBINTL) $(THREADLIBS) \
+ 	$(LIBDL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
+ dwp_LDFLAGS = $(GOLD_LDFLAGS)
+ 
+--- a/gold/Makefile.in
++++ b/gold/Makefile.in
+@@ -814,7 +814,7 @@
+ libgold_a_LIBADD = $(LIBOBJS)
+ sources_var = main.cc
+ deps_var = $(TARGETOBJS) libgold.a $(LIBIBERTY) $(LIBINTL_DEP)
+-ldadd_var = $(TARGETOBJS) libgold.a $(LIBIBERTY) $(GOLD_LDADD) $(LIBINTL) \
++ldadd_var = $(TARGETOBJS) libgold.a -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(GOLD_LDADD) $(LIBINTL) \
+ 	 $(THREADLIBS) $(LIBDL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
+ 
+ ldflags_var = $(GOLD_LDFLAGS)
+@@ -827,12 +827,12 @@
+ incremental_dump_DEPENDENCIES = $(TARGETOBJS) libgold.a $(LIBIBERTY) \
+ 	$(LIBINTL_DEP)
+ 
+-incremental_dump_LDADD = $(TARGETOBJS) libgold.a $(LIBIBERTY) $(LIBINTL) \
++incremental_dump_LDADD = $(TARGETOBJS) libgold.a -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LIBINTL) \
+ 	 $(THREADLIBS) $(LIBDL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
+ 
+ dwp_SOURCES = dwp.cc
+ dwp_DEPENDENCIES = libgold.a $(LIBIBERTY) $(LIBINTL_DEP)
+-dwp_LDADD = libgold.a $(LIBIBERTY) $(GOLD_LDADD) $(LIBINTL) $(THREADLIBS) \
++dwp_LDADD = libgold.a -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(GOLD_LDADD) $(LIBINTL) $(THREADLIBS) \
+ 	$(LIBDL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
+ 
+ dwp_LDFLAGS = $(GOLD_LDFLAGS)
+--- a/gold/plugin.cc
++++ b/gold/plugin.cc
+@@ -196,8 +196,9 @@
+ #ifdef ENABLE_PLUGINS
+   // Load the plugin library.
+   // FIXME: Look for the library in standard locations.
+-  this->handle_ = dlopen(this->filename_.c_str(), RTLD_NOW);
+-  if (this->handle_ == NULL)
++  void* ptr = (void*)ld_plugin_find_static(this->filename_.c_str());
++  this->handle_ = ptr ? NULL : dlopen(this->filename_.c_str(), RTLD_NOW);
++  if (!ptr && this->handle_ == NULL)
+     {
+       gold_error(_("%s: could not load plugin library: %s"),
+                  this->filename_.c_str(), dlerror());
+@@ -205,7 +206,8 @@
+     }
+ 
+   // Find the plugin's onload entry point.
+-  void* ptr = dlsym(this->handle_, "onload");
++  if (!ptr)
++    ptr = dlsym(this->handle_, "onload");
+   if (ptr == NULL)
+     {
+       gold_error(_("%s: could not find onload entry point"),
+--- a/include/plugin-api.h
++++ b/include/plugin-api.h
+@@ -615,6 +615,27 @@
+ enum ld_plugin_status
+ (*ld_plugin_onload) (struct ld_plugin_tv *tv);
+ 
++#include <stdio.h>
++#include <string.h>
++
++extern enum ld_plugin_status lto_onload(struct ld_plugin_tv*) __attribute__((__weak__));
++
++inline ld_plugin_onload ld_plugin_find_static(const char *name)
++{
++  fprintf(stderr, "Finding plugin %s: %p\n", name, lto_onload);
++  if (lto_onload)
++  {
++    const char LTO_PLUGIN_NAME[] = "liblto_plugin.so";
++    const char *lto_found = strstr(name, LTO_PLUGIN_NAME);
++    fprintf(stderr, "Found plugin %s: %s\n", name, lto_found ? lto_found : "no");
++
++    if (lto_found /* TODO?: && (lto_found == name || *(lto_found - 1) == '/'...) */)
++      return lto_onload;
++  }
++
++  return NULL;
++}
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/ld/Makefile.am
++++ b/ld/Makefile.am
+@@ -970,7 +970,7 @@
+ ld_new_DEPENDENCIES = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) \
+ 		      $(BFDLIB) $(LIBCTF) $(LIBIBERTY) $(LIBINTL_DEP) $(JANSSON_LIBS)
+ ld_new_LDADD = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) $(BFDLIB) $(LIBCTF) \
+-	       $(LIBIBERTY) $(LIBINTL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
++	       -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LIBINTL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
+ 
+ # Dependency tracking for the generated emulation files.
+ EXTRA_ld_new_SOURCES += $(ALL_EMULATION_SOURCES) $(ALL_64_EMULATION_SOURCES)
+--- a/ld/Makefile.in
++++ b/ld/Makefile.in
+@@ -1024,7 +1024,7 @@
+ 		      $(BFDLIB) $(LIBCTF) $(LIBIBERTY) $(LIBINTL_DEP) $(JANSSON_LIBS)
+ 
+ ld_new_LDADD = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) $(BFDLIB) $(LIBCTF) \
+-	       $(LIBIBERTY) $(LIBINTL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
++	       -Wl,--whole-archive $(wildcard ../../obj_gcc/lto-plugin/*.o) -Wl,--no-whole-archive $(LIBIBERTY) $(LIBINTL) $(ZLIB) $(ZSTD_LIBS) $(JANSSON_LIBS)
+ 
+ #
+ #
+--- a/ld/plugin.c
++++ b/ld/plugin.c
+@@ -250,7 +250,9 @@
+   newplug = xmalloc (sizeof *newplug);
+   memset (newplug, 0, sizeof *newplug);
+   newplug->name = plugin;
+-  newplug->dlhandle = dlopen (plugin, RTLD_NOW);
++  newplug->dlhandle = ld_plugin_find_static(plugin); // Kids, don't try this at home (TODO: Fix me)
++  if (!newplug->dlhandle)
++    newplug->dlhandle = dlopen (plugin, RTLD_NOW);
+   if (!newplug->dlhandle)
+     einfo (_("%F%P: %s: error loading plugin: %s\n"), plugin, dlerror ());
+ 
+@@ -1123,7 +1125,9 @@
+       enum ld_plugin_status rv;
+       ld_plugin_onload onloadfn;
+ 
+-      onloadfn = (ld_plugin_onload) dlsym (curplug->dlhandle, "onload");
++      onloadfn = ld_plugin_find_static(curplug->name);
++      if (!onloadfn)
++        onloadfn = (ld_plugin_onload) dlsym (curplug->dlhandle, "onload");
+       if (!onloadfn)
+ 	onloadfn = (ld_plugin_onload) dlsym (curplug->dlhandle, "_onload");
+       if (!onloadfn)
+@@ -1371,7 +1375,8 @@
+ 	  if (rv != LDPS_OK)
+ 	    info_msg (_("%P: %s: error in plugin cleanup: %d (ignored)\n"),
+ 		      curplug->name, rv);
+-	  dlclose (curplug->dlhandle);
++	  if (!ld_plugin_find_static(curplug->name))
++	    dlclose (curplug->dlhandle);
+ 	}
+       curplug = curplug->next;
+     }

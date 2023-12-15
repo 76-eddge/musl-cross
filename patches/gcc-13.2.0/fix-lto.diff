@@ -1,0 +1,44 @@
+--- a/gcc/configure
++++ b/gcc/configure
+@@ -26127,7 +26127,7 @@
+ 
+ { $as_echo "$as_me:${as_lineno-$LINENO}: checking linker plugin support" >&5
+ $as_echo_n "checking linker plugin support... " >&6; }
+-gcc_cv_lto_plugin=0
++gcc_cv_lto_plugin=2
+ if test -f liblto_plugin.la; then
+   save_ld_ver="$ld_ver"
+   save_ld_vers_major="$ld_vers_major"
+--- a/gcc/gcc.cc
++++ b/gcc/gcc.cc
+@@ -9086,10 +9086,9 @@
+ 					     LTOPLUGINSONAME, R_OK,
+ 					     false);
+ 	      if (!temp_spec)
+-		fatal_error (input_location,
+-			     "%<-fuse-linker-plugin%>, but %s not found",
+-			     LTOPLUGINSONAME);
+-	      linker_plugin_file_spec = convert_white_space (temp_spec);
++		linker_plugin_file_spec = LTOPLUGINSONAME;
++	      else
++		linker_plugin_file_spec = convert_white_space (temp_spec);
+ 	    }
+ #endif
+ 	  set_static_spec_shared (&lto_gcc_spec, argv0);
+--- a/lto-plugin/lto-plugin.c
++++ b/lto-plugin/lto-plugin.c
+@@ -1472,7 +1472,7 @@
+ /* Called by a linker after loading the plugin. TV is the transfer vector. */
+ 
+ enum ld_plugin_status
+-onload (struct ld_plugin_tv *tv)
++lto_onload (struct ld_plugin_tv *tv)
+ {
+   struct ld_plugin_tv *p;
+   enum ld_plugin_status status;
+@@ -1658,3 +1658,5 @@
+ 
+   return LDPS_OK;
+ }
++
++extern __typeof(lto_onload) onload __attribute__((__weak__, __alias__("lto_onload")));
