@@ -9,6 +9,7 @@ ARG MUSL_VER=1.2.5
 
 RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	sed -i -e 's/xvf/xf/' -e 's,hashes/%.sha1 |,| hashes/%.sha1,' musl-cross-make/Makefile && \
+	sed -i -re 's,([$][(]MAKE[)].*) [$]@,\1 obj_gcc/gcc/.lc_built \&\& find obj_binutils \\( -name "*-new" -o -name "ar" -o -name "nm" -o -name "ranlib" \\) -delete \&\& \1 install-binutils \&\& &,' musl-cross-make/Makefile && \
 	ln -s musl musl-cross-make/patches/musl-${MUSL_VER}
 
 COPY --link hashes musl-cross-make/hashes/
@@ -31,12 +32,13 @@ ARG ISL_VER=0.26
 ARG LINUX_VER=headers-4.19.88-1
 
 # Build compiler
-# - The `-static --static` options are used to build a statically-linked toolchain (https://github.com/richfelker/musl-cross-make/issues/64)
+# - Use COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" --disable-shared --enable-static' to build a statically-linked toolchain (https://github.com/richfelker/musl-cross-make/issues/64) to support any Linux distro, but some components requiring shared libraries will not work correctly
 RUN make -j4 -C musl-cross-make \
 	COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" AR="gcc-ar" RANLIB="gcc-ranlib" CFLAGS="-D_LARGEFILE64_SOURCE -D__USE_LARGEFILE64 -g0 -O3 -flto -fno-fat-lto-objects" CXXFLAGS="-D_LARGEFILE64_SOURCE -D__USE_LARGEFILE64 -g0 -O3 -flto -fno-fat-lto-objects" LDFLAGS="-s -flto" --disable-shared --enable-static' \
 	GCC_CONFIG='--disable-checking --enable-default-pie --with-pic --enable-libstdcxx-backtrace=yes' \
 	BINUTILS_CONFIG='--enable-gold' \
-	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE"' \
+	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE -flto"' \
+	MUSL_VARS='AR="../obj_binutils/binutils/ar --plugin liblto_plugin.so" RANLIB="../obj_binutils/binutils/ranlib --plugin liblto_plugin.so"' \
 	TARGET=${TARGET} \
 	GCC_VER=${GCC_VER} \
 	MUSL_VER=${MUSL_VER} \
@@ -91,7 +93,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
 		-exclude '-__convert_scm_timestamps,-recvm?msg' \
 		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__vdsosym,-__.*_to_secs,-__secs_to_.*,-__utc,-_*clock_nanosleep,-_*clock_gettime(64)?,-_*futimesat,-_*gmtime(_r)?,-timespec_get,-.*time64.*(includes 39/62)*' -info && \
-	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
+	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -flto -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
 	/musl-cross-make/output/bin/${TARGET}-gcc-ar ru /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
 	rm -rf compat_libc.o
 
@@ -99,7 +101,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.40.1.tar.gz
 RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
-	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar CFLAGS="-g -O3 -fPIC -lgabi" && \
+	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar CFLAGS="-g -O3 -flto -fPIC -lgabi" && \
 	make -j && \
 	mv libuuid.la .libs/libuuid.a ../musl-cross-make/output/${TARGET}/lib/ && \
 	mkdir -p ../musl-cross-make/output/${TARGET}/include/uuid && cp libuuid/src/uuid.h ../musl-cross-make/output/${TARGET}/include/uuid/ && \
@@ -108,7 +110,7 @@ RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_
 
 # Build libcompat_* libraries (time64 only on 32-bit architectures)
 RUN if [[ " arm armeb i386 i686 mips mipsel powerpc " =~ " ${TARGET%%-*} " ]]; then \
-		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -nostdlib -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgabi -lgcc && \
+		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -nostdlib -flto -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgabi -lgcc && \
 		/musl-cross-make/output/bin/${TARGET}-strip --remove-section=.comment --remove-section=.note.* /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so; \
 	fi;
 

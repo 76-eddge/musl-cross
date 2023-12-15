@@ -44,7 +44,7 @@ jobs:
       with:
         build-args: TARGET=${{ matrix.target }}
         cache-from: type=gha,scope=${{ matrix.target }}
-        cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+        cache-to: type=gha,ignore-error=true,mode=max,scope=${{ matrix.target }}
         no-cache-filters: deploy
         context: .
         outputs: type=tar,dest=${{ matrix.target }}.tar
