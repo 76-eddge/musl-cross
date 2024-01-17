@@ -2,8 +2,8 @@
 FROM alpine AS setup
 RUN apk add --no-cache file make g++ git linux-headers patch xz
 
-# (Needed for libuuid)
-RUN apk add --no-cache autoconf automake bison gettext-dev libtool pkgconfig
+# (Needed for binutils and libuuid)
+RUN apk add --no-cache autoconf automake bison gettext-dev gettext-static libtool pkgconfig
 
 ARG MUSL_VER=1.2.4
 
@@ -19,24 +19,10 @@ COPY --link sources musl-cross-make/sources/
 # Build the toolchain
 FROM setup AS build
 
+# aarch64[_be]-linux-musl, arm[eb]-linux-musleabi[hf], i*86-linux-musl, microblaze[el]-linux-musl, mips-linux-musl, mips[el]-linux-musl[sf], mips64[el]-linux-musl[n32][sf], powerpc-linux-musl[sf], powerpc64[le]-linux-musl, riscv64-linux-musl, s390x-linux-musl, sh*[eb]-linux-musl[fdpic][sf], x86_64-linux-musl[x32]
 ARG TARGET=x86_64-linux-musl
-# aarch64[_be]-linux-musl
-# arm[eb]-linux-musleabi[hf]
-# i*86-linux-musl
-# microblaze[el]-linux-musl
-# mips-linux-musl
-# mips[el]-linux-musl[sf]
-# mips64[el]-linux-musl[n32][sf]
-# powerpc-linux-musl[sf]
-# powerpc64[le]-linux-musl
-# riscv64-linux-musl
-# s390x-linux-musl
-# sh*[eb]-linux-musl[fdpic][sf]
-# x86_64-linux-musl[x32]
+# 13.2.0, 12.2.0, 11.3.0
 ARG GCC_VER=13.2.0
-# 13.2.0
-# 12.2.0
-# 11.3.0
 ARG BINUTILS_VER=2.41
 ARG GMP_VER=6.3.0
 ARG MPC_VER=1.3.1
@@ -47,7 +33,7 @@ ARG LINUX_VER=headers-4.19.88-1
 # Build compiler
 # - The `-static --static` options are used to build a statically-linked toolchain (https://github.com/richfelker/musl-cross-make/issues/64)
 RUN make -j4 -C musl-cross-make \
-	COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" CFLAGS="-g0 -O3" CXXFLAGS="-g0 -O3" LDFLAGS="-s" --disable-shared --enable-static' \
+	COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" AR="gcc-ar" RANLIB="gcc-ranlib" CFLAGS="-D_LARGEFILE64_SOURCE -g0 -O3 -flto -fno-fat-lto-objects" CXXFLAGS="-D_LARGEFILE64_SOURCE -g0 -O3 -flto -fno-fat-lto-objects" LDFLAGS="-s -flto" --disable-shared --enable-static' \
 	GCC_CONFIG='--enable-default-pie --with-pic --enable-libstdcxx-backtrace=yes' \
 	BINUTILS_CONFIG='--enable-gold' \
 	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE"' \
@@ -61,8 +47,8 @@ RUN make -j4 -C musl-cross-make \
 	ISL_VER=${ISL_VER} \
 	LINUX_VER=${LINUX_VER} \
 	install && \
-	musl-cross-make/output/${TARGET}/bin/ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
-	musl-cross-make/output/${TARGET}/bin/ranlib musl-cross-make/output/${TARGET}/lib/libc_dl.a && \
+	musl-cross-make/output/bin/${TARGET}-gcc-ar rc musl-cross-make/output/${TARGET}/lib/libc_dl.a musl-cross-make/build/local/${TARGET}/obj_musl/obj/ldso/*.lo && \
+	musl-cross-make/output/bin/${TARGET}-gcc-ranlib musl-cross-make/output/${TARGET}/lib/libc_dl.a && \
 	ln -sf libc.so musl-cross-make/output/${TARGET}/lib/ld-* && \
 	make -C musl-cross-make clean
 
@@ -90,7 +76,7 @@ RUN g++ -static -Os -Wall -o /musl-cross-make/output/bin/patchar /musl-cross-src
 	/musl-cross-make/output/bin/${TARGET}-g++ -static -Os -Wall -o /musl-cross-make/output/bin-native/patchar /musl-cross-src/patchar.cxx && \
 	/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/bin-native/patchar
 
-RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -nm /musl-cross-make/output/bin/${TARGET}-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
+RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -nm /musl-cross-make/output/bin/${TARGET}-gcc-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
 		-ignore '_GLOBAL_OFFSET_TABLE_,_.*[.]get_pc_thunk[.].*,_(rest|save)[gf]pr[0-2]?_[0-9]+.*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__a_.*,-__libc,-__lock,-__procfdname,-__syscall_.*,-__unlock' \
 		-ignore '__aeabi_.*,__.*di[34],__.*[dst]f[ds]i,__.*[ds]i[dst]f,__mul[dstx]c3,__.*tf[23],__.*tf[ds]f2' \
 		-defined 'strlen' -exclude '-.*basename' \
@@ -103,18 +89,20 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-defined 'getenv' -exclude '-_*secure_getenv' \
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
+		-exclude '-__convert_scm_timestamps,-recvm?msg' \
 		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__vdsosym,-__.*_to_secs,-__secs_to_.*,-__utc,-_*clock_nanosleep,-_*clock_gettime(64)?,-_*futimesat,-_*gmtime(_r)?,-timespec_get,-.*time64.*(includes 39/62)*' -info && \
 	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
-	/musl-cross-make/output/${TARGET}/bin/ar ru /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
+	/musl-cross-make/output/bin/${TARGET}-gcc-ar ru /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
 	rm -rf compat_libc.o
 
 # Build libuuid
 ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.39.2.tar.gz
 RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
-	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc CFLAGS="-g -O2 -fPIC -lgabi" && \
+	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar CFLAGS="-g -O3 -fPIC -lgabi" && \
 	make -j && \
 	mv libuuid.la .libs/libuuid.a ../musl-cross-make/output/${TARGET}/lib/ && \
+	mkdir -p ../musl-cross-make/output/${TARGET}/include/uuid && cp libuuid/src/uuid.h ../musl-cross-make/output/${TARGET}/include/uuid/ && \
 	cd .. && \
 	rm -rf util-linux-*
 

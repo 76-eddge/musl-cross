@@ -53,7 +53,8 @@ jobs:
     - name: Test Toolchain - Compile
       run: |
         ls -l ${{ matrix.target }}.tar
-        tar -xf ${{ matrix.target }}.tar
+        tar tvf ${{ matrix.target }}.tar
+        tar xf ${{ matrix.target }}.tar
         make SRC_DIR=test BIN_DIR=cc-bin CXX=bin/${{ matrix.target }}-g++ CXXFLAGS='-O2 -Wall' -f test/Makefile version tests
 
     - name: Test Toolchain - Run
