@@ -1,0 +1,41 @@
+--- a/gcc/config/gnu-user.h
++++ b/gcc/config/gnu-user.h
+@@ -109,8 +109,8 @@
+ #endif
+ 
+ #define GNU_USER_TARGET_LINK_GCC_C_SEQUENCE_SPEC \
+-  "%{static|static-pie:--start-group} %G %{!nolibc:%L} \
+-   %{static|static-pie:--end-group}%{!static:%{!static-pie:%G}}"
++  "--start-group %G %{!nolibc:%L} \
++   --end-group"
+ 
+ #undef LINK_GCC_C_SEQUENCE_SPEC
+ #define LINK_GCC_C_SEQUENCE_SPEC GNU_USER_TARGET_LINK_GCC_C_SEQUENCE_SPEC
+--- a/libgcc/Makefile.in
++++ b/libgcc/Makefile.in
+@@ -247,7 +247,8 @@
+ LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(HOST_LIBGCC2_CFLAGS) \
+ 		 $(LIBGCC2_DEBUG_CFLAGS) -DIN_LIBGCC2 \
+ 		 -fbuilding-libgcc -fno-stack-protector \
+-		 $(INHIBIT_LIBC_CFLAGS)
++		 $(INHIBIT_LIBC_CFLAGS) \
++		 -g0 -Os -DNO_GLIBC_ABI_COMPATIBLE
+ 
+ # Additional options to use when compiling libgcc2.a.
+ # Some targets override this to -isystem include
+--- a/libgcc/libgcc2.c
++++ b/libgcc/libgcc2.c
+@@ -35,6 +35,13 @@
+ #define ATTRIBUTE_HIDDEN
+ #endif
+ 
++#ifdef HAVE_GAS_HIDDEN
++extern void __stack_chk_fail(void);
++void __stack_chk_fail_local(void);
++
++__attribute__((__weak__, __visibility__("hidden"))) void __stack_chk_fail_local(void) { __stack_chk_fail(); }
++#endif
++
+ /* Work out the largest "word" size that we can deal with on this target.  */
+ #if MIN_UNITS_PER_WORD > 4
+ # define LIBGCC2_MAX_UNITS_PER_WORD 8

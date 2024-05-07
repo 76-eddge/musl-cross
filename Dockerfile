@@ -3,9 +3,9 @@ FROM alpine AS setup
 RUN apk add --no-cache file make g++ git linux-headers patch xz
 
 # (Needed for binutils and libuuid)
-RUN apk add --no-cache autoconf automake bison gettext-dev gettext-static libtool pkgconfig
+RUN apk add --no-cache autoconf automake bison flex gettext-dev gettext-static libtool pkgconfig
 
-ARG MUSL_VER=1.2.4
+ARG MUSL_VER=1.2.5
 
 RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	sed -i -e 's/xvf/xf/' -e 's,hashes/%.sha1 |,| hashes/%.sha1,' musl-cross-make/Makefile && \
@@ -21,9 +21,9 @@ FROM setup AS build
 
 # aarch64[_be]-linux-musl, arm[eb]-linux-musleabi[hf], i*86-linux-musl, microblaze[el]-linux-musl, mips-linux-musl, mips[el]-linux-musl[sf], mips64[el]-linux-musl[n32][sf], powerpc-linux-musl[sf], powerpc64[le]-linux-musl, riscv64-linux-musl, s390x-linux-musl, sh*[eb]-linux-musl[fdpic][sf], x86_64-linux-musl[x32]
 ARG TARGET=x86_64-linux-musl
-# 13.2.0, 12.2.0, 11.3.0
-ARG GCC_VER=13.2.0
-ARG BINUTILS_VER=2.41
+# 14.1.0, 13.2.0, 12.2.0, 11.3.0
+ARG GCC_VER=14.1.0
+ARG BINUTILS_VER=2.42
 ARG GMP_VER=6.3.0
 ARG MPC_VER=1.3.1
 ARG MPFR_VER=4.2.1
@@ -33,8 +33,8 @@ ARG LINUX_VER=headers-4.19.88-1
 # Build compiler
 # - The `-static --static` options are used to build a statically-linked toolchain (https://github.com/richfelker/musl-cross-make/issues/64)
 RUN make -j4 -C musl-cross-make \
-	COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" AR="gcc-ar" RANLIB="gcc-ranlib" CFLAGS="-D_LARGEFILE64_SOURCE -g0 -O3 -flto -fno-fat-lto-objects" CXXFLAGS="-D_LARGEFILE64_SOURCE -g0 -O3 -flto -fno-fat-lto-objects" LDFLAGS="-s -flto" --disable-shared --enable-static' \
-	GCC_CONFIG='--enable-default-pie --with-pic --enable-libstdcxx-backtrace=yes' \
+	COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" AR="gcc-ar" RANLIB="gcc-ranlib" CFLAGS="-D_LARGEFILE64_SOURCE -D__USE_LARGEFILE64 -g0 -O3 -flto -fno-fat-lto-objects" CXXFLAGS="-D_LARGEFILE64_SOURCE -D__USE_LARGEFILE64 -g0 -O3 -flto -fno-fat-lto-objects" LDFLAGS="-s -flto" --disable-shared --enable-static' \
+	GCC_CONFIG='--disable-checking --enable-default-pie --with-pic --enable-libstdcxx-backtrace=yes' \
 	BINUTILS_CONFIG='--enable-gold' \
 	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE"' \
 	TARGET=${TARGET} \
@@ -53,7 +53,7 @@ RUN make -j4 -C musl-cross-make \
 	make -C musl-cross-make clean
 
 # Build patchelf
-ARG PATCHELF_BZ2_URI=https://github.com/NixOS/patchelf/releases/download/0.17.0/patchelf-0.17.0.tar.bz2
+ARG PATCHELF_BZ2_URI=https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0.tar.bz2
 RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_URI") | tar xj && cp -a patchelf-* cross-patchelf && cd patchelf-* && \
 	./configure CXXFLAGS="-static -Os" && \
 	make && \
@@ -96,7 +96,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 	rm -rf compat_libc.o
 
 # Build libuuid
-ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.39.2.tar.gz
+ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.40.1.tar.gz
 RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
 	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar CFLAGS="-g -O3 -fPIC -lgabi" && \
