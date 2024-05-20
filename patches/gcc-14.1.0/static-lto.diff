@@ -11,7 +11,7 @@
    save_ld_vers_major="$ld_vers_major"
 --- a/gcc/gcc.cc
 +++ b/gcc/gcc.cc
-@@ -9230,10 +9230,9 @@
+@@ -9242,10 +9242,9 @@
  					     LTOPLUGINSONAME, R_OK,
  					     false);
  	      if (!temp_spec)

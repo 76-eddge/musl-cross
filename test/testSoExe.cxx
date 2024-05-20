@@ -1,4 +1,4 @@
-int runSO(int, const char**);
+extern "C" int runSO(int, const char**);
 
 int main(int argc, const char *argv[])
 {

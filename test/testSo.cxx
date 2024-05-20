@@ -6,7 +6,7 @@
 #include <ios>
 #include <iostream>
 
-int runSO(int argc, const char *argv[])
+extern "C" int runSO(int argc, const char *argv[])
 {
 	REQUIRE(strcmp(((const char *(*)(const char *))test::LibDL::Handle::Load()->GetSymbol("basename"))("test-dir/test.txt"), "test.txt") == 0);
 	REQUIRE(test::LibRT::Sleep(100000000));

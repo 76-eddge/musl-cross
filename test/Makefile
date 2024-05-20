@@ -40,8 +40,9 @@ $(BIN_DIR)/test.exe: $(CC_DIR)/test.exe
 endif
 
 $(CC_DIR)/%.so: $(SRC_DIR)/%So.cxx | $(CC_DIR)
-	$(CC_CXX) -shared -fPIC $(CC_CXXFLAGS) -o $@ $< $(CC_SO_LIBS)
+	$(CC_CXX) -shared -flto -fPIC $(CC_CXXFLAGS) -o $@ $< -Wl,--gc-sections $(CC_SO_LIBS)
 	$(PATCH_ELF) --remove-needed libc.so $@
+	$(subst ++,cc,$(CC_CXX))-nm -D $@
 
 $(CC_DIR)/%.exe: $(SRC_DIR)/%Exe.cxx | $(CC_DIR)
-	$(CC_CXX) -static $(CC_CXXFLAGS) -o $@ $< $(CC_LIBS)
+	$(CC_CXX) -static -flto $(CC_CXXFLAGS) -o $@ $< -Wl,--gc-sections $(CC_LIBS)

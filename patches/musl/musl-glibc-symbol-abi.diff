@@ -1,15 +1,3 @@
---- a/Makefile
-+++ b/Makefile
-@@ -115,6 +115,9 @@
- 
- obj/crt/Scrt1.o obj/crt/rcrt1.o: CFLAGS_ALL += -fPIC
- 
-+obj/crt/%.o: CFLAGS_ALL += -fno-lto
-+obj/ldso/%.lo: CFLAGS_ALL += -fno-lto
-+
- OPTIMIZE_SRCS = $(wildcard $(OPTIMIZE_GLOBS:%=$(srcdir)/src/%))
- $(OPTIMIZE_SRCS:$(srcdir)/%.c=obj/%.o) $(OPTIMIZE_SRCS:$(srcdir)/%.c=obj/%.lo): CFLAGS += -O3
- 
 --- a/include/dlfcn.h
 +++ b/include/dlfcn.h
 @@ -36,7 +36,12 @@

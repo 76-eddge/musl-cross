@@ -5,7 +5,7 @@ extern "C" void uuid_generate(std::uint8_t out[]);
 
 static const char HEX_CHARS[] = "0123456789abcdef";
 
-int runSO(int argc, const char *argv[])
+extern "C" int runSO(int argc, const char *argv[])
 {
 	std::cout << "Hello, world!" << std::endl;
 
