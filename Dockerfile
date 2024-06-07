@@ -43,7 +43,7 @@ RUN make -j4 -C musl-cross-make \
 		--disable-checking --enable-__cxa_atexit --enable-default-pie --enable-default-ssp --enable-threads \
 		${GCC_CONFIG} --disable-libssp --disable-libsanitizer --with-linker-hash-style=gnu --with-pic --enable-libstdcxx-backtrace=yes" \
 	BINUTILS_CONFIG='--enable-gold' \
-	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE"' \
+	MUSL_CONFIG='CFLAGS="-DNO_GLIBC_ABI_COMPATIBLE -flto"' \
 	MUSL_VARS='AR="../obj_binutils/binutils/ar --plugin liblto_plugin.so" RANLIB="../obj_binutils/binutils/ranlib --plugin liblto_plugin.so"' \
 	TARGET=${TARGET} \
 	GCC_VER=${GCC_VER} \
