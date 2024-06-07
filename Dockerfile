@@ -85,7 +85,7 @@ RUN /musl-cross-make/output/bin/${TARGET}-g++ -static -Os -Wall -flto -o /musl-c
 	/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/bin-native/patchar
 
 RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -ar /musl-cross-make/output/bin/${TARGET}-gcc-ar -nm /musl-cross-make/output/bin/${TARGET}-gcc-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
-		-ignore '_GLOBAL_OFFSET_TABLE_,_.*[.]get_pc_thunk[.].*,_(rest|save)[gf]pr[0-2]?_[0-9]+.*,__stack_chk_fail' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__a_.*,-__libc,-__lock,-__procfdname,-__syscall_.*,-__unlock' \
+		-ignore '_GLOBAL_OFFSET_TABLE_,_.*[.]get_pc_thunk[.].*,_(rest|save)[gf]pr[0-2]?_[0-9]+.*,__stack_chk_fail(_local)?' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__a_.*,-__libc,-__lock,-__procfdname,-__syscall_.*,-__unlock' \
 		-ignore '__aeabi_.*,__.*di[34],__.*[dst]f[ds]i,__.*[ds]i[dst]f,__mul[dstx]c3,__.*tf[23],__.*tf[ds]f2' \
 		-defined 'strlen' -exclude '-.*basename' \
 		-defined 'memset' -exclude '-explicit_bzero' \
