@@ -76,6 +76,7 @@ RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_
 	cd .. && rm -rf patchelf-* cross-patchelf
 
 COPY --link src /musl-cross-src/
+COPY --link results /musl-cross-results/
 
 # Build patchar
 RUN g++ -static -Os -Wall -flto -o /musl-cross-make/output/bin/patchar /musl-cross-src/patchar.cxx && \
@@ -85,12 +86,12 @@ RUN /musl-cross-make/output/bin/${TARGET}-g++ -static -Os -Wall -flto -o /musl-c
 	/musl-cross-make/output/bin/${TARGET}-strip /musl-cross-make/output/bin-native/patchar
 
 RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/libc.a /musl-cross-make/output/${TARGET}/lib/libgabi.a -ar /musl-cross-make/output/bin/${TARGET}-gcc-ar -nm /musl-cross-make/output/bin/${TARGET}-gcc-nm -objcopy /musl-cross-make/output/bin/${TARGET}-objcopy \
-		-ignore '_GLOBAL_OFFSET_TABLE_,_.*[.]get_pc_thunk[.].*,_(rest|save)[gf]pr[0-2]?_[0-9]+.*,__stack_chk_fail(_local)?' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__a_.*,-__libc,-__lock,-__procfdname,-__syscall_.*,-__unlock' \
+		-ignore '_GLOBAL_OFFSET_TABLE_,[.]TOC[.],_.*[.]get_pc_thunk[.].*,_(rest|save)[gf]pr[0-2]?_[0-9]+.*,__stack_chk_.*' -defined '_*environ,_*errno_location,pthread_.*' -exclude '.*,-__a_.*,-__libc,-__lock,-__procfdname,-__syscall_.*,-__unlock' \
 		-ignore '__aeabi_.*,__.*di[34],__.*[dst]f[ds]i,__.*[ds]i[dst]f,__mul[dstx]c3,__.*tf[23],__.*tf[ds]f2' \
 		-defined 'strlen' -exclude '-.*basename' \
 		-defined 'memset' -exclude '-explicit_bzero' \
 		-exclude '-fcntl' -defined 'aio_.*,alphasort,fgetpos,fseeko,fsetpos,ftello,getpid,lio_listio,mmap,scandir,versionsort' -exclude '-aio_.*64,-alphasort64,-fgetpos64,-fseeko64,-fsetpos64,-ftello64,-lio_listio64,-mmap64,-readdir(64)?,-readdir(64)?_r,-scandir64,-versionsort64' -exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-_*lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
-		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?,-l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
+		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__log(2f)?_.*,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__rsqrt_tab,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?,-l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
 		-exclude '-getentropy,-getrandom' \
 		-exclude '-mknod,-mknodat' \
 		-defined '_Exit' -exclude '-.*quick_exit.*' \
@@ -98,7 +99,8 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
 		-exclude '-__convert_scm_timestamps,-recvm?msg' \
-		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__vdsosym,-__.*_to_secs,-__secs_to_.*,-__utc,-_*clock_nanosleep,-_*clock_gettime(64)?,-_*futimesat,-_*gmtime(_r)?,-timespec_get,-.*time64.*(includes 39/62)*' -info && \
+		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__vdsosym,-__.*_to_secs,-__secs_to_.*,-__utc,-_*clock_nanosleep,-_*clock_gettime(64)?,-_*futimesat,-_*gmtime(_r)?,-timespec_get,-.*time64.*(includes 39/62)*' -info | tee patchar.log && \
+	diff <(sed -ne '/^Including symbol /p' /musl-cross-results/libgabi.${TARGET}.out | sort) <(sed -ne '/^Including symbol /p' patchar.log | sort) && \
 	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -flto -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
 	/musl-cross-make/output/bin/${TARGET}-gcc-ar r /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
 	rm -rf compat_libc.o

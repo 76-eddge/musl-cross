@@ -4,5 +4,6 @@
 # Only include the files we want
 !hashes/
 !patches/
+!results/
 !sources/
 !src/
