@@ -98,7 +98,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-defined 'getenv' -exclude '-_*secure_getenv' \
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \
 		-defined 'strnlen' -exclude '-strlcat,-strlcpy' \
-		-exclude '-__convert_scm_timestamps,-recvm?msg' \
+		-exclude '-__convert_scm_timestamps,-recvm?msg,-sendm?msg' \
 		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__vdsosym,-__.*_to_secs,-__secs_to_.*,-__utc,-_*clock_nanosleep,-_*clock_gettime(64)?,-_*futimesat,-_*gmtime(_r)?,-timespec_get,-.*time64.*(includes 39/62)*' -info | tee patchar.log && \
 	diff <(sed -ne '/^Including symbol /p' /musl-cross-results/libgabi.${TARGET}.out | sort) <(sed -ne '/^Including symbol /p' patchar.log | sort) && \
 	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -flto -fPIC -fvisibility=hidden -Wall -pedantic -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
