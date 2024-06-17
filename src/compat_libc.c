@@ -35,3 +35,27 @@ __attribute__((__weak__)) int __register_atfork(void (*prepare)(void), void (*pa
 
 	return ((int (*)(void (*)(void), void (*)(void), void (*)(void)))pthread_atfork_fn)(prepare, parent, child);
 }
+
+#define LOOKUP_LIBC_FUNC(RETURN_TYPE, NAME, NOT_FOUND_RETURN, PARAM_LIST, ARG_LIST) \
+RETURN_TYPE NAME PARAM_LIST \
+{ \
+	static void *NAME ## _fn = 0; \
+\
+	if (!NAME ## _fn) \
+	{ \
+		NAME ## _fn = dlsym(RTLD_DEFAULT, #NAME); \
+\
+		if (!NAME ## _fn) \
+			return NOT_FOUND_RETURN; \
+	} \
+\
+	return ((RETURN_TYPE (*)PARAM_LIST)NAME ## _fn)ARG_LIST; \
+}
+
+__attribute__((__weak__)) LOOKUP_LIBC_FUNC(int, pthread_cond_init, ENOMEM, (struct pthread_cond *cond, const struct pthread_condattr *attr), (cond, attr))
+__attribute__((__weak__)) LOOKUP_LIBC_FUNC(int, pthread_cond_destroy, EINVAL, (struct pthread_cond *cond), (cond))
+
+__attribute__((__weak__)) LOOKUP_LIBC_FUNC(int, pthread_cond_signal, EINVAL, (struct pthread_cond *cond), (cond))
+__attribute__((__weak__)) LOOKUP_LIBC_FUNC(int, pthread_cond_broadcast, EINVAL, (struct pthread_cond *cond), (cond))
+__attribute__((__weak__)) LOOKUP_LIBC_FUNC(int, pthread_cond_wait, EINVAL, (struct pthread_cond *cond, struct pthread_mutex *mutex), (cond, mutex))
+__attribute__((__weak__)) LOOKUP_LIBC_FUNC(int, pthread_cond_timedwait, EINVAL, (struct pthread_cond *cond, struct pthread_mutex *mutex, const struct timespec *abstime), (cond, mutex, abstime))
