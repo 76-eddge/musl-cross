@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -51,11 +52,36 @@ public:
 		withFile(info.st_ino, info.st_mode, info.st_uid, info.st_gid, info.st_size, info.st_mtime);
 		return true;
 	}
+
+	static double GetVersion() {
+		static void *getVersionFunction = nullptr;
+
+		if (!getVersionFunction)
+			getVersionFunction = dlsym(RTLD_DEFAULT, "gnu_get_libc_version");
+
+		return !getVersionFunction ? 0 : std::atof(((const char*(*)())getVersionFunction)());
+	}
 };
 
 class LibDL {
 public:
 	class Handle {
+		typedef void *(SymbolLookupFunc)(void *handle, const char *name, const char *version);
+
+		static void *LookupSymbol(void *handle, const char *name, const char*) { return dlsym(handle, name); }
+
+		static SymbolLookupFunc *GetSymbolLookupFun() {
+			static SymbolLookupFunc *symbolLookupFunc = nullptr;
+
+			if (!symbolLookupFunc)
+				symbolLookupFunc = reinterpret_cast<SymbolLookupFunc*>(dlsym(RTLD_DEFAULT, "dlvsym"));
+
+			if (!symbolLookupFunc)
+				symbolLookupFunc = LookupSymbol;
+
+			return symbolLookupFunc;
+		}
+
 		void *_handle;
 
 		Handle(void *handle) : _handle(handle) { }
@@ -64,14 +90,16 @@ public:
 		Handle &operator=(const Handle &);
 
 	public:
+		static bool HasVersionLookup() { return GetSymbolLookupFun() != LookupSymbol; }
+
 		~Handle() { (void)dlclose(_handle); }
 
-		void *GetSymbol(const char *name) { return dlsym(_handle, name); }
+		void *GetSymbol(const char *name, const char *version = nullptr) { return version ? GetSymbolLookupFun()(_handle, name, version) : LookupSymbol(_handle, name, version); }
 
 		static std::unique_ptr<Handle> Load(const char *filename = nullptr) {
 			void *handle = dlopen(filename, RTLD_LAZY);
 
-			if (!handle)
+			if (!handle && filename)
 				throw std::runtime_error(std::string("dlopen() failed: ") + dlerror());
 
 			return std::unique_ptr<Handle>(new Handle(handle));

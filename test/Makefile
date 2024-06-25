@@ -19,7 +19,7 @@ tests: $(TESTS)
 
 run-%: export LD_LIBRARY_PATH :=$(CC_DIR)
 run-%: $(BIN_DIR)/%.exe
-	$(if $(filter %So, $*),$(PRE_SO_TEST),$(PRE_TEST)) $<
+	$(if $(filter %So, $*),$(PRE_SO_TEST),$(PRE_TEST)) $< $(POST_TEST)
 
 run-tests: $(TESTS) $(patsubst %.exe, run-%, $(notdir $(filter %.exe, $(TESTS))))
 

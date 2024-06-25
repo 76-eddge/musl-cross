@@ -65,8 +65,8 @@ jobs:
     - name: Test Toolchain - Run
       if: matrix.arch.target == 'x86_64-linux-musl'
       run: |
-        make SRC_DIR=test BIN_DIR=cc-bin CXX=bin/${{ matrix.arch.target }}-g++ CXXFLAGS='-O2 -Wall' PRE_SO_TEST="${{ matrix.arch.target }}/lib/ld-*" -f test/Makefile run-tests
-        make SRC_DIR=test BIN_DIR=native-bin CC_DIR=cc-native-bin CXX=g++ CC_CXX=bin/${{ matrix.arch.target }}-g++ CXXFLAGS='-O2 -Wall' -f test/Makefile run-tests
+        make SRC_DIR=test BIN_DIR=cc-bin CXX=bin/${{ matrix.arch.target }}-g++ CXXFLAGS='-O2 -Wall' PRE_SO_TEST="${{ matrix.arch.target }}/lib/ld-*" POST_TEST='quick_exit=yes' -f test/Makefile run-tests
+        make SRC_DIR=test BIN_DIR=native-bin CC_DIR=cc-native-bin CXX=g++ CC_CXX=bin/${{ matrix.arch.target }}-g++ CXXFLAGS='-O2 -Wall' POST_TEST='quick_exit=yes' -f test/Makefile run-tests
         for i in 76eddge/build-images:cxx-Xenial,/usr/bin/g++ 76eddge/build-images:cxx-Trusty,/usr/bin/g++ 76eddge/build-images:cxx-CentOS6,/usr/bin/g++ 76eddge/build-images:cxx-CentOS6,/opt/rh/devtoolset-7/root/usr/bin/g++ 76eddge/build-images:cxx-Alpine,/usr/bin/g++
         do
           IMAGE=$(echo "$i" | sed -e 's/,.*//')
