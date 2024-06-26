@@ -95,7 +95,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__log(2f)?_.*,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__rsqrt_tab,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?,-l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
 		-exclude '-getentropy,-getrandom' \
 		-exclude '-mknod,-mknodat' \
-		-defined '_Exit' -exclude '-_exit,-.*quick_exit.*' \
+		-exclude '-renameat2' \
 		-defined '-pthread_equal' -exclude '-_*pthread_equal,-thrd_equal,-_*thrd_sleep.*,-thrd_yield' \
 		-defined 'getenv' -exclude '-_*secure_getenv' \
 		-exclude '-_*stat.*,-_*fstat.*,-_*lstat.*,-_*fstatat.*' \

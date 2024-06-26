@@ -15,20 +15,20 @@
  #ifdef __cplusplus
 --- a/include/pthread.h
 +++ b/include/pthread.h
-@@ -198,6 +198,13 @@
- 
- int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
+@@ -196,6 +196,13 @@
+ int pthread_barrierattr_init(pthread_barrierattr_t *);
+ int pthread_barrierattr_setpshared(pthread_barrierattr_t *, int);
  
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
 +extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
 +
 +int __register_atfork(void (*)(void), void (*)(void), void (*)(void), void *);
-+#define pthread_atfork(prepare, parent, child) __register_atfork(prepare, parent, child, &__dso_handle ? __dso_handle : 0)
++static inline int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void)) { return __register_atfork(prepare, parent, child, &__dso_handle ? __dso_handle : 0); }
 +#endif
 +
- int pthread_getconcurrency(void);
- int pthread_setconcurrency(int);
+ int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
  
+ int pthread_getconcurrency(void);
 @@ -207,6 +214,7 @@
  	void (*__f)(void *);
  	void *__x;
@@ -51,9 +51,9 @@
  #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) \
 --- a/include/stdlib.h
 +++ b/include/stdlib.h
-@@ -50,6 +50,18 @@
- int at_quick_exit (void (*) (void));
- _Noreturn void quick_exit (int);
+@@ -43,6 +43,18 @@
+ void free (void *);
+ void *aligned_alloc(size_t, size_t);
  
 +#ifndef NO_GLIBC_ABI_COMPATIBLE
 +extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
@@ -64,12 +64,12 @@
 +__attribute__((__weak__)) int atexit(void (*func)(void)) { return __cxa_atexit(__cxa_func_convert(func), 0, &__dso_handle ? __dso_handle : 0); }
 +
 +int __cxa_at_quick_exit(__cxa_func, void *);
-+#define at_quick_exit(func) __cxa_at_quick_exit(__cxa_func_convert(func), &__dso_handle ? __dso_handle : 0)
++static inline int at_quick_exit(void (*func)(void)) { return __cxa_at_quick_exit(__cxa_func_convert(func), &__dso_handle ? __dso_handle : 0); }
 +#endif
 +
- char *getenv (const char *);
- 
- int system (const char *);
+ _Noreturn void abort (void);
+ int atexit (void (*) (void));
+ _Noreturn void exit (int);
 @@ -161,6 +173,11 @@
  float strtof_l(const char *__restrict, char **__restrict, struct __locale_struct *);
  double strtod_l(const char *__restrict, char **__restrict, struct __locale_struct *);

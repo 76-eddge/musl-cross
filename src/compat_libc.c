@@ -1,5 +1,5 @@
 /*
-	Copyright 2022-2023 Nick Little
+	Copyright 2022-2024 Nick Little
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -72,23 +72,28 @@ void *dlsym(void *restrict handle, const char *restrict name);
 
 POSSIBLY_UNDEFINED int __cxa_at_quick_exit(void (*func)(void *), void *dso_handle)
 {
+	static void *cxa_at_quick_exit_fn = 0;
 	static void *at_quick_exit_fn = 0;
 
-	if (!at_quick_exit_fn)
-	{
-		at_quick_exit_fn = dlsym(RTLD_DEFAULT, "at_quick_exit");
+	if (cxa_at_quick_exit_fn)
+		return ((int (*)(void (*)(void *), void *))cxa_at_quick_exit_fn)(func, dso_handle);
 
-		if (!at_quick_exit_fn)
-			return errno = ENOSYS;
-	}
+	if (at_quick_exit_fn)
+		return ((int (*)(void (*)(void *)))at_quick_exit_fn)(func);
 
-	return ((int (*)(void (*)(void *)))at_quick_exit_fn)(func);
+	cxa_at_quick_exit_fn = dlsym(RTLD_NEXT, "__cxa_at_quick_exit");
+	at_quick_exit_fn = dlsym(RTLD_DEFAULT, "at_quick_exit");
+
+	if (!cxa_at_quick_exit_fn && !at_quick_exit_fn)
+		return errno = ENOSYS;
+
+	return __cxa_at_quick_exit(func, dso_handle);
 }
 
 POSSIBLY_UNDEFINED int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle)
 {
-	static void *pthread_atfork_fn = 0;
 	static void *register_atfork_fn = 0;
+	static void *pthread_atfork_fn = 0;
 
 	if (register_atfork_fn)
 		return ((int (*)(void (*)(void), void (*)(void), void (*)(void), void *))register_atfork_fn)(prepare, parent, child, dso_handle);
@@ -96,10 +101,10 @@ POSSIBLY_UNDEFINED int __register_atfork(void (*prepare)(void), void (*parent)(v
 	if (pthread_atfork_fn)
 		return ((int (*)(void (*)(void), void (*)(void), void (*)(void)))pthread_atfork_fn)(prepare, parent, child);
 
-	pthread_atfork_fn = dlsym(RTLD_DEFAULT, "pthread_atfork");
 	register_atfork_fn = dlsym(RTLD_NEXT, "__register_atfork");
+	pthread_atfork_fn = dlsym(RTLD_DEFAULT, "pthread_atfork");
 
-	if (!pthread_atfork_fn && !register_atfork_fn)
+	if (!register_atfork_fn && !pthread_atfork_fn)
 		return errno = ENOSYS;
 
 	return __register_atfork(prepare, parent, child, dso_handle);

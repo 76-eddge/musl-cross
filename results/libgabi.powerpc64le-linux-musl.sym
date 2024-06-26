@@ -1,8 +1,6 @@
-__at_quick_exit_lockptr
 __clock_gettime
 __clock_nanosleep
 __convert_scm_timestamps
-__cxa_at_quick_exit
 __exp_data
 __exp2f_data
 __fpclassify
@@ -10,8 +8,6 @@ __fpclassifyf
 __fpclassifyl
 __fstat
 __fstatat
-__funcs_on_quick_exit
-__funcs_on_quick_exit
 __gmtime_r
 __libc
 __lock
@@ -46,8 +42,6 @@ __unlock
 __utc
 __xpg_basename
 __year_to_secs
-_exit
-at_quick_exit
 basename
 ceil
 ceilf
@@ -140,7 +134,6 @@ pselect
 pthread_equal
 pwrite
 pwritev
-quick_exit
 readdir
 readdir_r
 recvmmsg

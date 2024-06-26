@@ -1,6 +1,5 @@
 __adjtime64
 __adjtimex_time64
-__at_quick_exit_lockptr
 __clock_adjtime64
 __clock_getres_time64
 __clock_gettime
@@ -9,7 +8,6 @@ __clock_nanosleep
 __clock_nanosleep_time64
 __clock_settime64
 __convert_scm_timestamps
-__cxa_at_quick_exit
 __difftime64
 __exp_data
 __exp2f_data
@@ -21,8 +19,6 @@ __fstat_time64
 __fstatat
 __fstatat_time64
 __ftime64
-__funcs_on_quick_exit
-__funcs_on_quick_exit
 __futimens_time64
 __futimes_time64
 __futimesat
@@ -95,8 +91,6 @@ __wait3_time64
 __wait4_time64
 __xpg_basename
 __year_to_secs
-_exit
-at_quick_exit
 basename
 ceil
 ceilf
@@ -177,7 +171,6 @@ prlimit
 pthread_equal
 pwrite
 pwritev
-quick_exit
 readdir
 readdir_r
 readdir64
