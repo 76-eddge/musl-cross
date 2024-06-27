@@ -67,27 +67,29 @@ void *dlsym(void *restrict handle, const char *restrict name);
 #endif
 
 // Bypass Functions:
-// These functions are the public glibc functions.
-// The public functions that map to these are actually hidden in the static C library, so they cannot be linked and must be looked up by name.
+//   The standard public functions that map to these functions are marked hidden by the static glibc library (libc_nonshared.a), resulting in link-time failures when linking any DSO compiled against musl-libc.
+//   Therefore, the standard public functions must be bypassed and looked up by name (or using the glibc exposed replacement functions).
 
 POSSIBLY_UNDEFINED int __cxa_at_quick_exit(void (*func)(void *), void *dso_handle)
 {
 	static void *cxa_at_quick_exit_fn = 0;
 	static void *at_quick_exit_fn = 0;
 
-	if (cxa_at_quick_exit_fn)
-		return ((int (*)(void (*)(void *), void *))cxa_at_quick_exit_fn)(func, dso_handle);
+	for (;;) {
+		// Try to use the glibc replacement function (__cxa_at_quick_exit) first, then the standard public function (at_quick_exit)
+		if (cxa_at_quick_exit_fn)
+			return ((int (*)(void (*)(void *), void *))cxa_at_quick_exit_fn)(func, dso_handle);
+		else if (at_quick_exit_fn)
+			return ((int (*)(void (*)(void *)))at_quick_exit_fn)(func);
 
-	if (at_quick_exit_fn)
-		return ((int (*)(void (*)(void *)))at_quick_exit_fn)(func);
+		// Attempt to find the glibc replacement function (__cxa_at_quick_exit) or the standard public function (at_quick_exit)
+		cxa_at_quick_exit_fn = dlsym(RTLD_NEXT, "__cxa_at_quick_exit");
+		at_quick_exit_fn = dlsym(RTLD_DEFAULT, "at_quick_exit");
 
-	cxa_at_quick_exit_fn = dlsym(RTLD_NEXT, "__cxa_at_quick_exit");
-	at_quick_exit_fn = dlsym(RTLD_DEFAULT, "at_quick_exit");
-
-	if (!cxa_at_quick_exit_fn && !at_quick_exit_fn)
-		return errno = ENOSYS;
-
-	return __cxa_at_quick_exit(func, dso_handle);
+		// If neither function was found then return ENOSYS
+		if (!cxa_at_quick_exit_fn && !at_quick_exit_fn)
+			return errno = ENOSYS;
+	}
 }
 
 POSSIBLY_UNDEFINED int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle)
@@ -95,24 +97,26 @@ POSSIBLY_UNDEFINED int __register_atfork(void (*prepare)(void), void (*parent)(v
 	static void *register_atfork_fn = 0;
 	static void *pthread_atfork_fn = 0;
 
-	if (register_atfork_fn)
-		return ((int (*)(void (*)(void), void (*)(void), void (*)(void), void *))register_atfork_fn)(prepare, parent, child, dso_handle);
+	for (;;) {
+		// Try to use the glibc replacement function (__register_atfork) first, then the standard public function (pthread_atfork)
+		if (register_atfork_fn)
+			return ((int (*)(void (*)(void), void (*)(void), void (*)(void), void *))register_atfork_fn)(prepare, parent, child, dso_handle);
+		else if (pthread_atfork_fn)
+			return ((int (*)(void (*)(void), void (*)(void), void (*)(void)))pthread_atfork_fn)(prepare, parent, child);
 
-	if (pthread_atfork_fn)
-		return ((int (*)(void (*)(void), void (*)(void), void (*)(void)))pthread_atfork_fn)(prepare, parent, child);
+		// Attempt to find the glibc replacement function (__register_atfork) or the standard public function (pthread_atfork)
+		register_atfork_fn = dlsym(RTLD_NEXT, "__register_atfork");
+		pthread_atfork_fn = dlsym(RTLD_DEFAULT, "pthread_atfork");
 
-	register_atfork_fn = dlsym(RTLD_NEXT, "__register_atfork");
-	pthread_atfork_fn = dlsym(RTLD_DEFAULT, "pthread_atfork");
-
-	if (!register_atfork_fn && !pthread_atfork_fn)
-		return errno = ENOSYS;
-
-	return __register_atfork(prepare, parent, child, dso_handle);
+		// If neither function was found then return ENOSYS
+		if (!register_atfork_fn && !pthread_atfork_fn)
+			return errno = ENOSYS;
+	}
 }
 
-// Looking up the function (using dlsym()) will find the latest version of the symbol.
-// Whereas linking against the symbol (without a specific version) will always use the oldest version of the symbol.
-// Use LOOKUP_LIBC_FUNC() to use the latest version of a symbol with some minor overhead used to lookup the symbol the first time it is called.
+// Use LOOKUP_LIBC_FUNC*() to use the latest version of a symbol with some minor overhead used to lookup the symbol the first time it is called.
+// Note: Looking up the function (using dlsym()) will find the latest version of the symbol.
+//   Whereas linking against the symbol (without a specific version) will always use the oldest version of the symbol.
 
 #define LOOKUP_LIBC_FUNC_NO_RET(NAME, PARAM_LIST, ARG_LIST) \
 void NAME PARAM_LIST \
