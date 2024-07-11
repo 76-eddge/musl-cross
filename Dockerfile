@@ -91,7 +91,8 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-defined 'strlen' -exclude '-.*basename' \
 		-defined 'memset' -exclude '-explicit_bzero' \
 		-exclude '-fcntl,-msgctl,-semctl,-shmctl' \
-		-defined 'aio_.*,alphasort,fgetpos,fseeko,fsetpos,ftello,getpid,lio_listio,mmap,scandir,versionsort' -exclude '-aio_.*64,-alphasort64,-fgetpos64,-fseeko64,-fsetpos64,-ftello64,-lio_listio64,-mmap64,-readdir(64)?,-readdir(64)?_r,-scandir64,-versionsort64' -exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-_*lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
+		-defined 'getpid' -exclude '-readdir(64)?' \
+		-exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-_*lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
 		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__log(2f)?_.*,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__rsqrt_tab,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?,-l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
 		-exclude '-getentropy,-getrandom' \
 		-exclude '-mknod,-mknodat' \

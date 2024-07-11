@@ -137,7 +137,6 @@ pthread_equal
 pwrite
 pwritev
 readdir
-readdir_r
 recvmmsg
 recvmsg
 remquo

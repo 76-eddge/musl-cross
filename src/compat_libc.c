@@ -146,6 +146,7 @@ RETURN_TYPE NAME PARAM_LIST \
 	return ((RETURN_TYPE (*)PARAM_LIST)NAME ## _fn)ARG_LIST; \
 }
 
+struct aiocb;
 struct cpu_set;
 struct dirent;
 struct file;
@@ -157,6 +158,7 @@ struct passwd;
 struct rlimit;
 struct sem;
 struct servent;
+struct sigevent;
 struct spwd;
 struct timespec;
 
@@ -169,7 +171,9 @@ struct pthread_mutexattr;
 struct pthread_once;
 typedef unsigned long pthread_t;
 
+typedef unsigned long long fpos_t;
 typedef unsigned gid_t;
+typedef unsigned long long off_t;
 typedef union { int value; void *pointer; } size_t;
 typedef unsigned socklen_t;
 typedef unsigned uid_t;
@@ -373,3 +377,47 @@ POSSIBLY_UNDEFINED void tss_delete(pthread_key_t key) { (void)pthread_key_delete
 POSSIBLY_UNDEFINED void* tss_get(pthread_key_t key) { return pthread_getspecific(key); }
 POSSIBLY_UNDEFINED int tss_set(pthread_key_t key, const void *value) { return pthread_setspecific(key, value) == 0 ? thrd_success : thrd_error; }
 #endif // MIN_GLIBC == 2 && MIN_GLIBC_MINOR < 28
+
+// LFS functions
+#if WORD_SIZE == 32
+	#define LOOKUP_LIBC64_FUNC(RETURN_TYPE, NAME, END, NOT_FOUND_RETURN, PARAM_LIST, ARG_LIST) \
+RETURN_TYPE NAME ## 64 ## END PARAM_LIST \
+{ \
+	static void *NAME ## _fn = 0; \
+\
+	if (!NAME ## _fn) \
+	{ \
+		NAME ## _fn = dlsym(RTLD_NEXT, #NAME "64" #END); \
+\
+		if (!NAME ## _fn) \
+			NAME ## _fn = dlsym(RTLD_DEFAULT, #NAME #END); \
+\
+		if (!NAME ## _fn) \
+			return errno = ENOSYS, NOT_FOUND_RETURN; \
+	} \
+\
+	return ((RETURN_TYPE (*)PARAM_LIST)NAME ## _fn)ARG_LIST; \
+}
+
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, aio_cancel, , -1, (int fd, struct aiocb *cb), (fd, cb))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, aio_error, , ENOSYS, (const struct aiocb *cb), (cb))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, aio_fsync, , -1, (int op, struct aiocb *cb), (op, cb))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, aio_read, , -1, (struct aiocb *cb), (cb))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(size_t, aio_return, , (size_t)-1, (struct aiocb *cb), (cb))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, aio_write, , -1, (struct aiocb *cb), (cb))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, lio_listio, , -1, (int mode, struct aiocb *restrict const *restrict cbs, int cnt, struct sigevent *restrict sev), (mode, cbs, cnt, sev))
+
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, alphasort, , -1, (const struct dirent **a, const struct dirent **b), (a, b))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, readdir, _r, -1, (struct dirent *restrict dirp, struct dirent *restrict entry, struct dirent **restrict result), (dirp, entry, result))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, scandir, , -1, (const char *path, struct dirent ***res, \
+	int (*sel)(const struct dirent *), \
+	int (*cmp)(const struct dirent **, const struct dirent **)), (path, res, sel, cmp))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, versionsort, , -1, (const struct dirent **a, const struct dirent **b), (a, b))
+
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, fgetpos, , -1, (struct file *restrict f, fpos_t *restrict pos), (f, pos))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, fseeko, , -1, (struct file *f, off_t off, int whence), (f, off, whence))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, fsetpos, , -1, (struct file *f, const fpos_t *pos), (f, pos))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(off_t, ftello, , (off_t)-1, (struct file *f), (f))
+POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(void *, mmap, , (void *)-1, (void *start, size_t len, int prot, int flags, int fd, off_t off), (start, len, prot, flags, fd, off))
+
+#endif // WORD_SIZE == 32

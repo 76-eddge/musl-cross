@@ -167,7 +167,6 @@ lseek
 lstat
 mknod
 mknodat
-mmap64
 modf
 modff
 modfl
@@ -193,9 +192,7 @@ pthread_equal
 pwrite
 pwritev
 readdir
-readdir_r
 readdir64
-readdir64_r
 recvmmsg
 recvmsg
 remquo
