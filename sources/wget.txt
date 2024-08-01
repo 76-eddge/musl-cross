@@ -1,4 +1,4 @@
-https://ftpmirror.gnu.org/gnu/gcc/gcc-14.1.0/gcc-14.1.0.tar.xz
+https://ftpmirror.gnu.org/gnu/gcc/gcc-14.2.0/gcc-14.2.0.tar.xz
 http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=3d5db9ebe860 -O config.sub
 https://ftpmirror.gnu.org/gnu/binutils/binutils-2.42.tar.xz
 https://musl.libc.org/releases/musl-1.2.5.tar.gz
@@ -8,4 +8,4 @@ https://ftpmirror.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz
 https://libisl.sourceforge.io/isl-0.26.tar.xz
 http://ftp.barfooze.de/pub/sabotage/tarballs/linux-headers-4.19.88-1.tar.xz
 https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0.tar.bz2
-https://github.com/util-linux/util-linux/archive/refs/tags/v2.40.1.tar.gz -O util-linux.tar.gz
+https://github.com/util-linux/util-linux/archive/refs/tags/v2.40.2.tar.gz -O util-linux.tar.gz

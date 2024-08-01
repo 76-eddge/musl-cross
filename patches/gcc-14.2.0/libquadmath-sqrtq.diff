@@ -1,0 +1,11 @@
+--- a/libquadmath/math/sqrtq.c
++++ b/libquadmath/math/sqrtq.c
+@@ -7,7 +7,7 @@
+     && defined(FE_UPWARD) \
+     && defined(FE_DOWNWARD) \
+     && defined(FE_TOWARDZERO) \
+-    && defined(FE_INEXACT)
++    && defined(FE_INEXACT) && 0
+ #define USE_SOFT_FP 1
+ #include "../../libgcc/soft-fp/soft-fp.h"
+ #include "../../libgcc/soft-fp/quad.h"
