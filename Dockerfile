@@ -104,7 +104,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-exclude '-__convert_scm_timestamps,-_*p?poll.*,-_*recvm?msg.*,-_*sendm?msg.*,-_*p?select.*' \
 		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__vdsosym,-__.*_to_secs,-__secs_to_.*,-__utc,-_*clock_nanosleep.*,-_*clock_getres.*,-_*clock_gettime.*,-_*futimesat.*,-_*gmtime(_r)?,-_*nanosleep.*,-_*timegm.*,-_*timerfd_.*,-timespec_get,-.*time64.*(includes 39/62)*' -info | tee patchar.log && \
 	diff <(sed -nre '/^[^ ]+$/p' -e '/objcopy /p' -e 's/^Including symbol ([^ ]+).*/\1/p' /musl-cross-results/libgabi.${TARGET}.sym | sort) <(sed -nre '/objcopy /p' -e 's/^Including symbol ([^ ]+).*/\1/p' patchar.log | sort) && \
-	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -flto -fPIC -fvisibility=hidden -Wall -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
+	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -flto -ffat-lto-objects -fPIC -fvisibility=hidden -Wall -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
 	/musl-cross-make/output/bin/${TARGET}-gcc-ar r /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
 	rm -rf compat_libc.o
 
@@ -112,7 +112,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.40.2.tar.gz
 RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
-	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar RANLIB=/musl-cross-make/output/bin/${TARGET}-gcc-ranlib CFLAGS="-g -O3 -flto -ffunction-sections -fdata-sections -fPIC -lgabi" && \
+	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar RANLIB=/musl-cross-make/output/bin/${TARGET}-gcc-ranlib CFLAGS="-g -O3 -flto -ffat-lto-objects -ffunction-sections -fdata-sections -fPIC -lgabi" && \
 	make -j && \
 	mv libuuid.la .libs/libuuid.a ../musl-cross-make/output/${TARGET}/lib/ && \
 	mkdir -p ../musl-cross-make/output/${TARGET}/include/uuid && cp libuuid/src/uuid.h ../musl-cross-make/output/${TARGET}/include/uuid/ && \
@@ -121,7 +121,7 @@ RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_
 
 # Build libcompat_* libraries (time64 only on 32-bit architectures)
 RUN if [[ " arm armeb i386 i686 mips mipsel powerpc " =~ " ${TARGET%%-*} " ]]; then \
-		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -nostdlib -flto -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgabi -lgcc && \
+		/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -nostdlib -flto -ffat-lto-objects -fPIC -fvisibility=hidden -Wall -pedantic -shared -o /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so /musl-cross-src/compat_time64.c -lgabi -lgcc && \
 		/musl-cross-make/output/bin/${TARGET}-strip --remove-section=.comment --remove-section=.note.* /musl-cross-make/output/${TARGET}/lib/libcompat_time64.so; \
 	fi;
 
