@@ -82,7 +82,7 @@ static inline struct timespec32 ConvertTimeSpec64To32(const struct timespec ts) 
 }
 
 // 32-bit Time Functions
-int aio_suspend64(const struct aiocb *const[], int, const struct timespec32*);
+int aio_suspend(const struct aiocb *const[], int, const struct timespec32*);
 char *ctime(const time32_t*);
 char *ctime_r(const time32_t*, char*);
 void *dlsym(void*, const char*);
@@ -150,6 +150,10 @@ POSSIBLY_UNDEFINED int __pthread_timedjoin_np64(pthread_t thread, void **retval,
 POSSIBLY_UNDEFINED int __pthread_timedjoin_np_time64(pthread_t thread, void **retval, const struct timespec *abstime) { return __pthread_timedjoin_np64(thread, retval, abstime); }
 
 // Time Functions
+POSSIBLY_UNDEFINED int aio_suspend64(const struct aiocb *const aiocb_list[], int nitems, const struct timespec32 *timeout) {
+	return aio_suspend(aiocb_list, nitems, timeout);
+}
+
 POSSIBLY_UNDEFINED int __aio_suspend_time64(const struct aiocb *const aiocb_list[], int nitems, const struct timespec *restrict timeout) {
 	if (!timeout)
 		return aio_suspend64(aiocb_list, nitems, (const struct timespec32*)0);
