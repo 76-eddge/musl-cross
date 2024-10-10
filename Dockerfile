@@ -104,7 +104,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-exclude '-__convert_scm_timestamps,-_*p?poll.*,-_*recvm?msg.*,-_*sendm?msg.*,-_*p?select.*' \
 		-defined 'asctime(_r)?,localtime(_r)?,memcpy,strcmp' -exclude '-__vdsosym,-__.*_to_secs,-__secs_to_.*,-__utc,-_*clock_nanosleep.*,-_*clock_getres.*,-_*clock_gettime.*,-_*futimesat.*,-_*gmtime(_r)?,-_*nanosleep.*,-_*timegm.*,-_*timerfd_.*,-timespec_get,-.*time64.*(includes 39/62)*' -info | tee patchar.log && \
 	diff <(sed -nre '/^[^ ]+$/p' -e '/objcopy /p' -e 's/^Including symbol ([^ ]+).*/\1/p' /musl-cross-results/libgabi.${TARGET}.sym | sort) <(sed -nre '/objcopy /p' -e 's/^Including symbol ([^ ]+).*/\1/p' patchar.log | sort) && \
-	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -flto -ffat-lto-objects -fPIC -fvisibility=hidden -Wall -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
+	/musl-cross-make/output/bin/${TARGET}-gcc -DNO_GLIBC_ABI_COMPATIBLE -O3 -flto -ffat-lto-objects -ffunction-sections -fdata-sections -fPIC -Wall -c -o compat_libc.o /musl-cross-src/compat_libc.c && \
 	/musl-cross-make/output/bin/${TARGET}-gcc-ar r /musl-cross-make/output/${TARGET}/lib/libgabi.a compat_libc.o && \
 	rm -rf compat_libc.o
 

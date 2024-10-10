@@ -15,9 +15,9 @@
 	#define NULL ((void *)0)
 #endif
 
-#define POSSIBLY_UNDEFINED __attribute__((__weak__))
+#define POSSIBLY_UNDEFINED __attribute__((__weak__, visibility("hidden")))
 
-void *dlsym(void *restrict handle, const char *restrict name);
+extern void *dlsym(void *restrict handle, const char *restrict name);
 
 #define RTLD_DEFAULT ((void *)0)
 #define RTLD_NEXT ((void *)-1)
@@ -171,10 +171,15 @@ struct pthread_mutexattr;
 struct pthread_once;
 typedef unsigned long pthread_t;
 
+#if WORD_SIZE == 32
+typedef unsigned int size_t;
+#else
+typedef unsigned long size_t;
+#endif
+
 typedef unsigned long long fpos_t;
 typedef unsigned gid_t;
 typedef unsigned long long off_t;
-typedef union { int value; void *pointer; } size_t;
 typedef unsigned socklen_t;
 typedef unsigned uid_t;
 
@@ -233,7 +238,7 @@ POSSIBLY_UNDEFINED LOOKUP_LIBC_FUNC(void*, fmemopen, NULL, (void *restrict buf, 
 #endif // MIN_GLIBC == 2 && MIN_GLIBC_MINOR < 22
 
 #if MIN_GLIBC == 2 && MIN_GLIBC_MINOR < 24
-__attribute__((__weak__, __noreturn__)) LOOKUP_LIBC_FUNC_NO_RET(quick_exit, (int exit_code), (exit_code))
+__attribute__((__weak__, __noreturn__, visibility("hidden"))) LOOKUP_LIBC_FUNC_NO_RET(quick_exit, (int exit_code), (exit_code))
 #endif // MIN_GLIBC == 2 && MIN_GLIBC_MINOR < 24
 
 #if WORD_SIZE == 32 && MIN_GLIBC == 2 && MIN_GLIBC < 34
@@ -349,7 +354,7 @@ POSSIBLY_UNDEFINED int thrd_detach(pthread_t thread) { return pthread_detach(thr
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
 #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
 
-__attribute__((__weak__, __noreturn__)) void thrd_exit(int result) { pthread_exit((void*)result); }
+__attribute__((__weak__, __noreturn__, visibility("hidden"))) void thrd_exit(int result) { pthread_exit((void*)result); }
 
 POSSIBLY_UNDEFINED int thrd_join(pthread_t thread, int *value_ptr)
 {
@@ -419,5 +424,4 @@ POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, fseeko, , -1, (struct file *f, off_t 
 POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(int, fsetpos, , -1, (struct file *f, const fpos_t *pos), (f, pos))
 POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(off_t, ftello, , (off_t)-1, (struct file *f), (f))
 POSSIBLY_UNDEFINED LOOKUP_LIBC64_FUNC(void *, mmap, , (void *)-1, (void *start, size_t len, int prot, int flags, int fd, off_t off), (start, len, prot, flags, fd, off))
-
 #endif // WORD_SIZE == 32
