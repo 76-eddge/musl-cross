@@ -61,6 +61,17 @@ public:
 
 		return !getVersionFunction ? 0 : std::atof(((const char*(*)())getVersionFunction)());
 	}
+
+	static void* AllocatePage() {
+		void *memory = mmap(nullptr, 4096, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+
+		if (memory == MAP_FAILED)
+			throw std::runtime_error(std::string("mmap() failed: ") + strerror(errno));
+
+		return memory;
+	}
+
+	static bool DeallocatePage(void *memory) { return munmap(memory, 4096) == 0; }
 };
 
 class LibDL {

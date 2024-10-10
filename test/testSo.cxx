@@ -32,6 +32,8 @@ extern "C" int runSO(int argc, const char *argv[])
 	if (!test::LibC::WithRandom([](std::size_t random) { std::cout << " Random: " << random << std::endl; }))
 		std::cout << " Random functions unsupported" << std::endl;
 
+	REQUIRE(test::LibC::DeallocatePage(test::LibC::AllocatePage()));
+
 	REQUIRE(test::LibC::WithTruncatedFile([](ino_t inode, mode_t mode, uid_t uid, gid_t gid, off_t size, long long m_sec) {
 		std::cout << " WithFile {inode: " << inode << ", mode: " << std::oct << mode << std::dec << ", uid: " << uid << ", gid: " << gid << ", size: " << size << ", modification time: " << m_sec << "}" << std::endl;
 		REQUIRE(size == 1);
