@@ -75,21 +75,20 @@ POSSIBLY_UNDEFINED int __cxa_at_quick_exit(void (*func)(void *), void *dso_handl
 	static void *cxa_at_quick_exit_fn = 0;
 	static void *at_quick_exit_fn = 0;
 
-	for (;;) {
-		// Try to use the glibc replacement function (__cxa_at_quick_exit) first, then the standard public function (at_quick_exit)
-		if (cxa_at_quick_exit_fn)
-			return ((int (*)(void (*)(void *), void *))cxa_at_quick_exit_fn)(func, dso_handle);
-		else if (at_quick_exit_fn)
-			return ((int (*)(void (*)(void *)))at_quick_exit_fn)(func);
+	// Try to use the glibc replacement function (__cxa_at_quick_exit) first, then the standard public function (at_quick_exit)
+	if (cxa_at_quick_exit_fn)
+		return ((int (*)(void (*)(void *), void *))cxa_at_quick_exit_fn)(func, dso_handle);
+	else if (at_quick_exit_fn)
+		return ((int (*)(void (*)(void *)))at_quick_exit_fn)(func);
 
-		// Attempt to find the glibc replacement function (__cxa_at_quick_exit) or the standard public function (at_quick_exit)
-		cxa_at_quick_exit_fn = dlsym(RTLD_NEXT, "__cxa_at_quick_exit");
-		at_quick_exit_fn = dlsym(RTLD_DEFAULT, "at_quick_exit");
+	// Attempt to find the glibc replacement function (__cxa_at_quick_exit) or the standard public function (at_quick_exit)
+	if ((cxa_at_quick_exit_fn = dlsym(RTLD_DEFAULT, "__cxa_at_quick_exit")) != 0)
+		return ((int (*)(void (*)(void *), void *))cxa_at_quick_exit_fn)(func, dso_handle);
+	else if ((at_quick_exit_fn = dlsym(RTLD_DEFAULT, "at_quick_exit")) != 0)
+		return ((int (*)(void (*)(void *)))at_quick_exit_fn)(func);
 
-		// If neither function was found then return ENOSYS
-		if (!cxa_at_quick_exit_fn && !at_quick_exit_fn)
-			return errno = ENOSYS;
-	}
+	// If neither function was found then return ENOSYS
+	return errno = ENOSYS;
 }
 
 POSSIBLY_UNDEFINED int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle)
@@ -97,21 +96,20 @@ POSSIBLY_UNDEFINED int __register_atfork(void (*prepare)(void), void (*parent)(v
 	static void *register_atfork_fn = 0;
 	static void *pthread_atfork_fn = 0;
 
-	for (;;) {
-		// Try to use the glibc replacement function (__register_atfork) first, then the standard public function (pthread_atfork)
-		if (register_atfork_fn)
-			return ((int (*)(void (*)(void), void (*)(void), void (*)(void), void *))register_atfork_fn)(prepare, parent, child, dso_handle);
-		else if (pthread_atfork_fn)
-			return ((int (*)(void (*)(void), void (*)(void), void (*)(void)))pthread_atfork_fn)(prepare, parent, child);
+	// Try to use the glibc replacement function (__register_atfork) first, then the standard public function (pthread_atfork)
+	if (register_atfork_fn)
+		return ((int (*)(void (*)(void), void (*)(void), void (*)(void), void *))register_atfork_fn)(prepare, parent, child, dso_handle);
+	else if (pthread_atfork_fn)
+		return ((int (*)(void (*)(void), void (*)(void), void (*)(void)))pthread_atfork_fn)(prepare, parent, child);
 
-		// Attempt to find the glibc replacement function (__register_atfork) or the standard public function (pthread_atfork)
-		register_atfork_fn = dlsym(RTLD_NEXT, "__register_atfork");
-		pthread_atfork_fn = dlsym(RTLD_DEFAULT, "pthread_atfork");
+	// Attempt to find the glibc replacement function (__register_atfork) or the standard public function (pthread_atfork)
+	if ((register_atfork_fn = dlsym(RTLD_DEFAULT, "__register_atfork")) != 0)
+		return ((int (*)(void (*)(void), void (*)(void), void (*)(void), void *))register_atfork_fn)(prepare, parent, child, dso_handle);
+	else if ((pthread_atfork_fn = dlsym(RTLD_DEFAULT, "pthread_atfork")) != 0)
+		return ((int (*)(void (*)(void), void (*)(void), void (*)(void)))pthread_atfork_fn)(prepare, parent, child);
 
-		// If neither function was found then return ENOSYS
-		if (!register_atfork_fn && !pthread_atfork_fn)
-			return errno = ENOSYS;
-	}
+	// If neither function was found then return ENOSYS
+	return errno = ENOSYS;
 }
 
 // Use LOOKUP_LIBC_FUNC*() to use the latest version of a symbol with some minor overhead used to lookup the symbol the first time it is called.
@@ -392,7 +390,7 @@ RETURN_TYPE NAME ## 64 ## END PARAM_LIST \
 \
 	if (!NAME ## _fn) \
 	{ \
-		NAME ## _fn = dlsym(RTLD_NEXT, #NAME "64" #END); \
+		NAME ## _fn = dlsym(RTLD_DEFAULT, #NAME "64" #END); \
 \
 		if (!NAME ## _fn) \
 			NAME ## _fn = dlsym(RTLD_DEFAULT, #NAME #END); \
