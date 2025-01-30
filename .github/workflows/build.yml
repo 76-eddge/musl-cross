@@ -48,8 +48,6 @@ jobs:
         build-args: |
           TARGET=${{ matrix.arch.target }}
           GCC_CONFIG=${{ matrix.arch.config }}
-        cache-from: type=gha,scope=${{ matrix.arch.target }}
-        cache-to: type=gha,ignore-error=true,mode=max,scope=${{ matrix.arch.target }}
         no-cache-filters: deploy
         context: .
         outputs: type=tar,dest=${{ matrix.arch.target }}.tar
