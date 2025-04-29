@@ -1,0 +1,64 @@
+--- a/gcc/configure
++++ b/gcc/configure
+@@ -28000,7 +28000,7 @@
+ 
+ { $as_echo "$as_me:${as_lineno-$LINENO}: checking linker plugin support" >&5
+ $as_echo_n "checking linker plugin support... " >&6; }
+-gcc_cv_lto_plugin=0
++gcc_cv_lto_plugin=2
+ if test -f liblto_plugin.la; then
+   save_ld_ver="$ld_ver"
+   save_ld_vers_major="$ld_vers_major"
+--- a/gcc/gcc.cc
++++ b/gcc/gcc.cc
+@@ -9275,10 +9275,9 @@
+ 					     LTOPLUGINSONAME, R_OK,
+ 					     false);
+ 	      if (!temp_spec)
+-		fatal_error (input_location,
+-			     "%<-fuse-linker-plugin%>, but %s not found",
+-			     LTOPLUGINSONAME);
+-	      linker_plugin_file_spec = convert_white_space (temp_spec);
++		linker_plugin_file_spec = LTOPLUGINSONAME;
++	      else
++		linker_plugin_file_spec = convert_white_space (temp_spec);
+ 	    }
+ #endif
+ 	  set_static_spec_shared (&lto_gcc_spec, argv0);
+--- a/gcc/gcc-ar.cc
++++ b/gcc/gcc-ar.cc
+@@ -127,7 +127,7 @@
+ {
+   const char *exe_name;
+ #if HAVE_LTO_PLUGIN > 0
+-  char *plugin;
++  const char *plugin;
+   const int j = 2; /* Two extra args, --plugin <plugin>  */
+ #else
+   const int j = 0; /* No extra args.  */
+@@ -188,7 +188,7 @@
+ 
+ #if HAVE_LTO_PLUGIN > 0
+   /* Find the GCC LTO plugin */
+-  plugin = find_a_file (&target_path, LTOPLUGINSONAME, R_OK);
++  plugin = LTOPLUGINSONAME; // find_a_file (&target_path, LTOPLUGINSONAME, R_OK);
+   if (!plugin)
+     {
+       fprintf (stderr, "%s: Cannot find plugin '%s'\n", av[0], LTOPLUGINSONAME);
+--- a/lto-plugin/lto-plugin.c
++++ b/lto-plugin/lto-plugin.c
+@@ -1509,7 +1509,7 @@
+ /* Called by a linker after loading the plugin. TV is the transfer vector. */
+ 
+ enum ld_plugin_status
+-onload (struct ld_plugin_tv *tv)
++lto_onload (struct ld_plugin_tv *tv)
+ {
+   struct ld_plugin_tv *p;
+   enum ld_plugin_status status;
+@@ -1708,3 +1708,5 @@
+ 
+   return LDPS_OK;
+ }
++
++extern __typeof(lto_onload) onload __attribute__((__weak__, __alias__("lto_onload")));

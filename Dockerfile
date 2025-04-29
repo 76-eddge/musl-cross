@@ -12,12 +12,13 @@ ARG MUSL_VER=1.2.5
 
 RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	sed -i -e 's/xvf/xf/' -e 's,hashes/%.sha1 |,| hashes/%.sha1,' musl-cross-make/Makefile && \
-	sed -i -re 's,([$][(]MAKE[)].*) [$]@,\1 obj_gcc/gcc/.lc_built \&\& find obj_binutils \\( -name "*-new" -o -name "ar" -o -name "nm" -o -name "ranlib" \\) -delete \&\& \1 install-binutils \&\& &,' musl-cross-make/Makefile && \
-	ln -s musl musl-cross-make/patches/musl-${MUSL_VER}
+	sed -i -re 's,([$][(]MAKE[)].*) [$]@,\1 obj_gcc/gcc/.lc_built \&\& find obj_binutils \\( -name "*-new" -o -name "ar" -o -name "nm" -o -name "ranlib" \\) -delete \&\& \1 install-binutils \&\& &,' musl-cross-make/Makefile
 
 COPY --link hashes musl-cross-make/hashes/
 COPY --link patches musl-cross-make/patches/
 COPY --link sources musl-cross-make/sources/
+
+RUN cd musl-cross-make/patches/ && mkdir -p musl-${MUSL_VER} && cp -f musl/* musl-${MUSL_VER}/
 
 
 # Build the toolchain
@@ -26,13 +27,13 @@ FROM setup AS build
 # aarch64[_be]-linux-musl, arm[eb]-linux-musleabi[hf], i*86-linux-musl, microblaze[el]-linux-musl, mips-linux-musl, mips[el]-linux-musl[sf], mips64[el]-linux-musl[n32][sf], powerpc-linux-musl[sf], powerpc64[le]-linux-musl, riscv64-linux-musl, s390x-linux-musl, sh*[eb]-linux-musl[fdpic][sf], x86_64-linux-musl[x32]
 ARG TARGET=x86_64-linux-musl
 ARG GCC_CONFIG=
-# 14.2.0, 14.1.0, 13.2.0, 12.2.0, 11.3.0
-ARG GCC_VER=14.2.0
-ARG BINUTILS_VER=2.42
+# 15.1.0, 14.2.0, 14.1.0, 13.2.0, 12.2.0, 11.3.0
+ARG GCC_VER=15.1.0
+ARG BINUTILS_VER=2.44
 ARG GMP_VER=6.3.0
 ARG MPC_VER=1.3.1
-ARG MPFR_VER=4.2.1
-ARG ISL_VER=0.26
+ARG MPFR_VER=4.2.2
+ARG ISL_VER=0.27
 ARG LINUX_VER=headers-4.19.88-1
 
 # Build compiler
@@ -109,7 +110,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 	rm -rf compat_libc.o
 
 # Build libuuid
-ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.40.2.tar.gz
+ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.41.tar.gz
 RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
 	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar RANLIB=/musl-cross-make/output/bin/${TARGET}-gcc-ranlib CFLAGS="-g -O3 -flto -ffat-lto-objects -ffunction-sections -fdata-sections -fPIC -lgabi" && \

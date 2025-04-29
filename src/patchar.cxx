@@ -47,7 +47,7 @@ template <typename CharT> class FileDescriptorBuffer
 	FileDescriptorBuffer &operator=(FileDescriptorBuffer&&) = delete;
 
 public:
-	FileDescriptorBuffer(FileDescriptorBuffer &&other) noexcept : _fd(other._fd), _mode(other.mode) { other._fd = -1; }
+	FileDescriptorBuffer(FileDescriptorBuffer &&other) noexcept : _fd(other._fd), _mode(other._mode) { other._fd = -1; }
 	~FileDescriptorBuffer() { close(); }
 
 	void close() noexcept
