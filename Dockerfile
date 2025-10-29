@@ -27,9 +27,9 @@ FROM setup AS build
 # aarch64[_be]-linux-musl, arm[eb]-linux-musleabi[hf], i*86-linux-musl, microblaze[el]-linux-musl, mips-linux-musl, mips[el]-linux-musl[sf], mips64[el]-linux-musl[n32][sf], powerpc-linux-musl[sf], powerpc64[le]-linux-musl, riscv64-linux-musl, s390x-linux-musl, sh*[eb]-linux-musl[fdpic][sf], x86_64-linux-musl[x32]
 ARG TARGET=x86_64-linux-musl
 ARG GCC_CONFIG=
-# 15.1.0, 14.2.0, 14.1.0, 13.2.0, 12.2.0, 11.3.0
-ARG GCC_VER=15.1.0
-ARG BINUTILS_VER=2.44
+# 15.2.0, 15.1.0, 14.2.0, 14.1.0, 13.2.0, 12.2.0, 11.3.0
+ARG GCC_VER=15.2.0
+ARG BINUTILS_VER=2.45
 ARG GMP_VER=6.3.0
 ARG MPC_VER=1.3.1
 ARG MPFR_VER=4.2.2
@@ -110,7 +110,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 	rm -rf compat_libc.o
 
 # Build libuuid
-ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.41.tar.gz
+ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.41.2.tar.gz
 RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
 	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar RANLIB=/musl-cross-make/output/bin/${TARGET}-gcc-ranlib CFLAGS="-g -O3 -flto -ffat-lto-objects -ffunction-sections -fdata-sections -fPIC -lgabi" && \
