@@ -3,12 +3,10 @@ FROM alpine AS setup
 RUN apk add --no-cache file make g++ git linux-headers patch xz
 
 # Need basename() in string.h to build gcc
-RUN printf "#if defined(_GNU_SOURCE) && !defined(__cplusplus)\nchar *basename();\n#endif" >> /usr/include/string.h
+RUN printf "#if defined(_GNU_SOURCE) && !defined(__cplusplus) && !(defined(__STDC_VERSION__) && __STDC_VERSION__ > 201710L)\nchar *basename();\n#endif" >> /usr/include/string.h
 
 # (Needed for binutils and libuuid)
 RUN apk add --no-cache autoconf automake bison flex gettext-dev gettext-static libtool pkgconfig
-
-ARG MUSL_VER=1.2.5
 
 RUN git clone -q https://github.com/richfelker/musl-cross-make.git && \
 	sed -i -e 's/xvf/xf/' -e 's,hashes/%.sha1 |,| hashes/%.sha1,' musl-cross-make/Makefile && \
@@ -18,8 +16,6 @@ COPY --link hashes musl-cross-make/hashes/
 COPY --link patches musl-cross-make/patches/
 COPY --link sources musl-cross-make/sources/
 
-RUN cd musl-cross-make/patches/ && mkdir -p musl-${MUSL_VER} && cp -f musl/* musl-${MUSL_VER}/
-
 
 # Build the toolchain
 FROM setup AS build
@@ -27,14 +23,15 @@ FROM setup AS build
 # aarch64[_be]-linux-musl, arm[eb]-linux-musleabi[hf], i*86-linux-musl, microblaze[el]-linux-musl, mips-linux-musl, mips[el]-linux-musl[sf], mips64[el]-linux-musl[n32][sf], powerpc-linux-musl[sf], powerpc64[le]-linux-musl, riscv64-linux-musl, s390x-linux-musl, sh*[eb]-linux-musl[fdpic][sf], x86_64-linux-musl[x32]
 ARG TARGET=x86_64-linux-musl
 ARG GCC_CONFIG=
-# 15.2.0, 15.1.0, 14.2.0, 14.1.0, 13.2.0, 12.2.0, 11.3.0
-ARG GCC_VER=15.2.0
-ARG BINUTILS_VER=2.45
+# 16.1.0, 15.2.0, 15.1.0, 14.2.0, 14.1.0, 13.2.0, 12.2.0, 11.3.0
+ARG GCC_VER=16.1.0
+ARG MUSL_VER=1.2.6
+ARG BINUTILS_VER=2.46.0
 ARG GMP_VER=6.3.0
-ARG MPC_VER=1.3.1
+ARG MPC_VER=1.4.1
 ARG MPFR_VER=4.2.2
 ARG ISL_VER=0.27
-ARG LINUX_VER=headers-4.19.88-1
+ARG LINUX_VER=headers-4.19.88-2
 
 # Build compiler
 # - Use COMMON_CONFIG='CC="gcc -static --static" CXX="g++ -static --static" --disable-shared --enable-static' to build a statically-linked toolchain (https://github.com/richfelker/musl-cross-make/issues/64) to support any Linux distro, but some components requiring shared libraries will not work correctly
@@ -77,7 +74,7 @@ RUN (cat musl-cross-make/sources/patchelf-*.tar.bz2 || wget -O - "$PATCHELF_BZ2_
 	cd .. && rm -rf patchelf-* cross-patchelf
 
 COPY --link src /musl-cross-src/
-COPY --link results /musl-cross-results/
+COPY --link results/musl-${MUSL_VER} /musl-cross-results/
 
 # Build patchar
 RUN g++ -static -Os -Wall -flto -o /musl-cross-make/output/bin/patchar /musl-cross-src/patchar.cxx && \
@@ -93,7 +90,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 		-defined 'memset' -exclude '-explicit_bzero' \
 		-exclude '-fcntl,-msgctl,-semctl,-shmctl' \
 		-defined 'getpid' -exclude '-readdir(64)?' \
-		-exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-_*lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
+		-exclude '-creat,-fallocate,-ftruncate,-getdents,-getrlimit,-lockf,-_*lseek,-open,-openat,-posix_fadvise,-posix_fallocate,-posix_getdents,-pread,-preadv,-prlimit,-pwrite,-pwritev,-sendfile,-setrlimit,-truncate' \
 		-exclude '-__exp(2f)?_.*,-__fpclassify.?,-__log(2f)?_.*,-__math_.*,-__p1evll,-__polevll,-__powf?_.*,-__rsqrt_tab,-__signbit.?,-ceil.?,-div,-fabs.?,-floor.?,-fmod.?,-frexp.?,-ilogb.?,-log.?,-log10.?,-log1p.?,-log2.?,-l*rint.?,-l*round.?,-ldexp.?,-modf.?,-nan.?,-pow.?,-remquo.?,-scalbl?n.?,-sqrt.?,-trunc.?' \
 		-exclude '-getentropy,-getrandom' \
 		-exclude '-mknod,-mknodat' \
@@ -110,7 +107,7 @@ RUN /musl-cross-make/output/bin/patchar /musl-cross-make/output/${TARGET}/lib/li
 	rm -rf compat_libc.o
 
 # Build libuuid
-ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.41.2.tar.gz
+ARG UTIL_LINUX_GZ_URI=https://github.com/util-linux/util-linux/archive/refs/tags/v2.42.tar.gz
 RUN (cat musl-cross-make/sources/util-linux.tar.gz || wget -O - "$UTIL_LINUX_GZ_URI") | tar xz && cd util-linux-* && \
 	./autogen.sh && \
 	./configure --disable-all-programs --enable-libuuid --host ${TARGET} CC=/musl-cross-make/output/bin/${TARGET}-gcc AR=/musl-cross-make/output/bin/${TARGET}-gcc-ar RANLIB=/musl-cross-make/output/bin/${TARGET}-gcc-ranlib CFLAGS="-g -O3 -flto -ffat-lto-objects -ffunction-sections -fdata-sections -fPIC -lgabi" && \
