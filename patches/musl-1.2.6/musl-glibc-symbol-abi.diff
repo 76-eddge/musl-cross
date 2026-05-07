@@ -1,0 +1,213 @@
+--- a/include/alltypes.h.in
++++ b/include/alltypes.h.in
+@@ -58,9 +58,9 @@ TYPEDEF struct __pthread * pthread_t;
+ TYPEDEF int pthread_once_t;
+ TYPEDEF unsigned pthread_key_t;
+ TYPEDEF int pthread_spinlock_t;
+-TYPEDEF struct { unsigned __attr; } pthread_mutexattr_t;
+-TYPEDEF struct { unsigned __attr; } pthread_condattr_t;
+-TYPEDEF struct { unsigned __attr; } pthread_barrierattr_t;
++TYPEDEF union { unsigned __attr; unsigned long __l; } pthread_mutexattr_t;
++TYPEDEF union { unsigned __attr; unsigned long __l; } pthread_condattr_t;
++TYPEDEF union { unsigned __attr; unsigned long __l; } pthread_barrierattr_t;
+ TYPEDEF struct { unsigned __attr[2]; } pthread_rwlockattr_t;
+ 
+ STRUCT _IO_FILE { char __x; };
+@@ -82,13 +82,13 @@ STRUCT winsize { unsigned short ws_row, ws_col, ws_xpixel, ws_ypixel; };
+ TYPEDEF unsigned socklen_t;
+ TYPEDEF unsigned short sa_family_t;
+ 
+-TYPEDEF struct { union { int __i[sizeof(long)==8?14:9]; volatile int __vi[sizeof(long)==8?14:9]; unsigned long __s[sizeof(long)==8?7:9]; } __u; } pthread_attr_t;
+-TYPEDEF struct { union { int __i[sizeof(long)==8?10:6]; volatile int __vi[sizeof(long)==8?10:6]; volatile void *volatile __p[sizeof(long)==8?5:6]; } __u; } pthread_mutex_t;
+-TYPEDEF struct { union { int __i[sizeof(long)==8?10:6]; volatile int __vi[sizeof(long)==8?10:6]; volatile void *volatile __p[sizeof(long)==8?5:6]; } __u; } mtx_t;
++TYPEDEF struct { union { int __i[sizeof(long)==8?14:9]; volatile int __vi[sizeof(long)==8?14:9]; unsigned long __s[sizeof(long)==8?8:9]; } __u; } pthread_attr_t;
++TYPEDEF struct { union { int __i[sizeof(long)==8?10:6]; volatile int __vi[sizeof(long)==8?10:6]; volatile void *volatile __p[sizeof(long)==8?6:8]; } __u; } pthread_mutex_t;
++TYPEDEF struct { union { int __i[sizeof(long)==8?10:6]; volatile int __vi[sizeof(long)==8?10:6]; volatile void *volatile __p[sizeof(long)==8?6:8]; } __u; } mtx_t;
+ TYPEDEF struct { union { int __i[12]; volatile int __vi[12]; void *__p[12*sizeof(int)/sizeof(void*)]; } __u; } pthread_cond_t;
+ TYPEDEF struct { union { int __i[12]; volatile int __vi[12]; void *__p[12*sizeof(int)/sizeof(void*)]; } __u; } cnd_t;
+-TYPEDEF struct { union { int __i[sizeof(long)==8?14:8]; volatile int __vi[sizeof(long)==8?14:8]; void *__p[sizeof(long)==8?7:8]; } __u; } pthread_rwlock_t;
+-TYPEDEF struct { union { int __i[sizeof(long)==8?8:5]; volatile int __vi[sizeof(long)==8?8:5]; void *__p[sizeof(long)==8?4:5]; } __u; } pthread_barrier_t;
++TYPEDEF struct { union { int __i[sizeof(long)==8?14:8]; volatile int __vi[sizeof(long)==8?14:8]; void *__p[sizeof(long)==8?8:12]; } __u; } pthread_rwlock_t;
++TYPEDEF struct { union { int __i[sizeof(long)==8?8:5]; volatile int __vi[sizeof(long)==8?8:5]; void *__p[sizeof(long)==8?6:5]; } __u; } pthread_barrier_t;
+ 
+ #undef _Addr
+ #undef _Int64
+--- a/include/dlfcn.h
++++ b/include/dlfcn.h
+@@ -36,7 +36,12 @@
+ #endif
+ 
+ #if _REDIR_TIME64
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__attribute__((__weak__)) void *__dlsym_time64(void *__restrict handle, const char *__restrict symbol) { return dlsym(handle, symbol); }
++#define dlsym __dlsym_time64
++#else
+ __REDIR(dlsym, __dlsym_time64);
++#endif
+ #endif
+ 
+ #ifdef __cplusplus
+--- a/include/pthread.h
++++ b/include/pthread.h
+@@ -196,6 +196,13 @@
+ int pthread_barrierattr_init(pthread_barrierattr_t *);
+ int pthread_barrierattr_setpshared(pthread_barrierattr_t *, int);
+ 
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
++
++int __register_atfork(void (*)(void), void (*)(void), void (*)(void), void *);
++static inline int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void)) { return __register_atfork(prepare, parent, child, &__dso_handle ? __dso_handle : 0); }
++#endif
++
+ int pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
+ 
+ int pthread_getconcurrency(void);
+@@ -207,6 +214,7 @@
+ 	void (*__f)(void *);
+ 	void *__x;
+ 	struct __ptcb *__next;
++	void *__unused;
+ };
+ 
+ void _pthread_cleanup_push(struct __ptcb *, void (*)(void *), void *);
+--- a/include/setjmp.h
++++ b/include/setjmp.h
+@@ -27,6 +27,9 @@
+ typedef jmp_buf sigjmp_buf;
+ int sigsetjmp (sigjmp_buf, int) __setjmp_attr;
+ _Noreturn void siglongjmp (sigjmp_buf, int);
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__REDIR(sigsetjmp, __sigsetjmp);
++#endif
+ #endif
+ 
+ #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) \
+--- a/include/stdlib.h
++++ b/include/stdlib.h
+@@ -43,6 +43,18 @@
+ void free (void *);
+ void *aligned_alloc(size_t, size_t);
+ 
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++extern void *__dso_handle __attribute__((__weak__, __visibility__("hidden")));
++typedef void (*__cxa_func)(void *);
++static inline __cxa_func __cxa_func_convert(void (*func)(void)) { return (__cxa_func)func; }
++
++int __cxa_atexit(__cxa_func, void *, void *);
++__attribute__((__weak__)) int atexit(void (*func)(void)) { return __cxa_atexit(__cxa_func_convert(func), 0, &__dso_handle ? __dso_handle : 0); }
++
++int __cxa_at_quick_exit(__cxa_func, void *);
++static inline int at_quick_exit(void (*func)(void)) { return __cxa_at_quick_exit(__cxa_func_convert(func), &__dso_handle ? __dso_handle : 0); }
++#endif
++
+ _Noreturn void abort (void);
+ int atexit (void (*) (void));
+ _Noreturn void exit (int);
+@@ -161,6 +173,11 @@
+ float strtof_l(const char *__restrict, char **__restrict, struct __locale_struct *);
+ double strtod_l(const char *__restrict, char **__restrict, struct __locale_struct *);
+ long double strtold_l(const char *__restrict, char **__restrict, struct __locale_struct *);
++
++#ifndef NO_GLIBC_ABI_COMPATIBLE
++__attribute__((__weak__)) char *__secure_getenv(const char *name) { return getenv(name); }
++__attribute__((__weak__)) char *secure_getenv(const char *name) { return __secure_getenv(name); }
++#endif
+ #endif
+ 
+ #if defined(_LARGEFILE64_SOURCE)
+--- a/src/env/secure_getenv.c
++++ b/src/env/secure_getenv.c
+@@ -6,3 +6,5 @@
+ {
+ 	return libc.secure ? NULL : getenv(name);
+ }
++
++weak_alias(secure_getenv, __secure_getenv);
+--- a/src/errno/__errno_location.c
++++ b/src/errno/__errno_location.c
+@@ -1,9 +1,9 @@
+ #include <errno.h>
+ #include "pthread_impl.h"
+ 
+-int *__errno_location(void)
++__attribute__((const)) hidden int *___errno_location(void)
+ {
+ 	return &__pthread_self()->errno_val;
+ }
+ 
+-weak_alias(__errno_location, ___errno_location);
++weak_alias(___errno_location, __errno_location);
+--- /dev/null
++++ b/src/exit/__cxa_at_quick_exit.c
+@@ -0,0 +1,6 @@
++#include <stdlib.h>
++
++int __cxa_at_quick_exit(void (*func)(void*), void *dso)
++{
++	return at_quick_exit((void (*)(void))(func));
++}
+--- a/src/include/errno.h
++++ b/src/include/errno.h
+@@ -3,12 +3,4 @@
+ 
+ #include "../../include/errno.h"
+ 
+-#ifdef __GNUC__
+-__attribute__((const))
+-#endif
+-hidden int *___errno_location(void);
+-
+-#undef errno
+-#define errno (*___errno_location())
+-
+ #endif
+--- a/src/thread/__lock.c
++++ b/src/thread/__lock.c
+@@ -19,7 +19,7 @@
+ void __lock(volatile int *l)
+ {
+ 	int need_locks = libc.need_locks;
+-	if (!need_locks) return;
++	if (!need_locks && libc.auxv) return;
+ 	/* fast path: INT_MIN for the lock, +1 for the congestion */
+ 	int current = a_cas(l, 0, INT_MIN + 1);
+ 	if (need_locks < 0) libc.need_locks = 0;
+--- /dev/null
++++ b/src/thread/__register_atfork.c
+@@ -0,0 +1,6 @@
++#include <pthread.h>
++
++int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle)
++{
++	return pthread_atfork(prepare, parent, child);
++}
+--- a/src/time/clock_gettime.c
++++ b/src/time/clock_gettime.c
+@@ -3,6 +3,7 @@
+ #include <stdint.h>
+ #include "syscall.h"
+ #include "atomic.h"
++#include "libc.h"
+ 
+ #ifdef VDSO_CGT_SYM
+ 
+@@ -33,7 +34,9 @@
+ 
+ static int cgt_init(clockid_t clk, struct timespec *ts)
+ {
+-	void *p = __vdsosym(VDSO_CGT_VER, VDSO_CGT_SYM);
++	void *p = (void *)0;
++	if (libc.auxv) {
++	p = __vdsosym(VDSO_CGT_VER, VDSO_CGT_SYM);
+ #ifdef VDSO_CGT32_SYM
+ 	if (!p) {
+ 		void *q = __vdsosym(VDSO_CGT32_VER, VDSO_CGT32_SYM);
+@@ -46,6 +49,7 @@
+ 	if (!__vdsosym(VDSO_CGT32_VER, VDSO_CGT32_SYM)) p = 0;
+ #endif
+ #endif
++	}
+ 	int (*f)(clockid_t, struct timespec *) =
+ 		(int (*)(clockid_t, struct timespec *))p;
+ 	a_cas_p(&vdso_func, (void *)cgt_init, p);

@@ -1,0 +1,11 @@
+--- a/Makefile
++++ b/Makefile
+@@ -131,6 +131,8 @@
+ 
+ $(LOBJS) $(LDSO_OBJS): CFLAGS_ALL += -fPIC
+ 
++obj/crt/%.o $(LDSO_OBJS): CFLAGS_ALL += -fno-lto
++
+ CC_CMD = $(CC) $(CFLAGS_ALL) -c -o $@ $<
+ 
+ # Choose invocation of assembler to be used

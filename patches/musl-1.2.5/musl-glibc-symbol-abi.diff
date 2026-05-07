@@ -116,6 +116,18 @@
  #endif
  
  #if defined(_LARGEFILE64_SOURCE)
+--- a/include/string.h
++++ b/include/string.h
+@@ -95,6 +95,9 @@ char *strchrnul(const char *, int);
+ char *strcasestr(const char *, const char *);
+ void *memrchr(const void *, int, size_t);
+ void *mempcpy(void *, const void *, size_t);
++#if !defined(__cplusplus) && !(defined(__STDC_VERSION__) && __STDC_VERSION__ > 201710L)
++char *basename();
++#endif
+ #endif
+ 
+ #ifdef __cplusplus
 --- a/src/env/secure_getenv.c
 +++ b/src/env/secure_getenv.c
 @@ -6,3 +6,5 @@
